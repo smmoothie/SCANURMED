@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Company",
+      "description": "An approved pharmaceutical company registered on the platform.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the company account."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Official name of the pharmaceutical company."
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254,
+          "description": "Contact email for the company."
+        },
+        "representativeName": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Authorized representative full name (e.g. Smriti Shekhar Nag, Abhishek Raul, Alankrita)."
+        },
+        "passwordHash": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Salted SHA-256 hash of the company portal password."
+        },
+        "passwordSalt": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]+$",
+          "description": "Hex-encoded random salt used for passwordHash."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Timestamp when the company registered."
+        }
+      },
+      "required": ["uid", "name", "email", "createdAt"]
+    },
+    "CompanyRegistrationRequest": {
+      "title": "CompanyRegistrationRequest",
+      "description": "A registration application submitted by a non-allowlisted company awaiting review.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the applicant."
+        },
+        "companyName": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Legal name of the pharmaceutical company."
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254,
+          "description": "Official business email."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Pharmaceutical manufacturing or distribution license ID."
+        },
+        "contactPerson": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Primary regulatory contact name."
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Business contact phone number."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Additional verification notes."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Review status of the registration request."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Submission timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Last review update timestamp."
+        }
+      },
+      "required": ["uid", "companyName", "email", "licenseNumber", "contactPerson", "phone", "status", "createdAt"]
+    },
+    "Medicine": {
+      "title": "Medicine",
+      "description": "An authorized medicine product registered on the platform.",
+      "type": "object",
+      "properties": {
+        "companyId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Reference to the company that owns this medicine."
+        },
+        "companyName": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Denormalized company name for quick display."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Name of the medicine."
+        },
+        "ingredients": {
+          "type": "array",
+          "description": "List of active ingredients."
+        },
+        "dosage": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Standard dosage information."
+        },
+        "sideEffects": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Possible side effects."
+        },
+        "barcode": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authorized QR code value."
+        },
+        "qr_code": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "QR code identifier matching barcode."
+        },
+        "mfgDate": {
+          "type": "string",
+          "format": "date",
+          "maxLength": 32,
+          "description": "Manufacturing date."
+        },
+        "expiryDate": {
+          "type": "string",
+          "format": "date",
+          "maxLength": 32,
+          "description": "Expiry date."
+        },
+        "medicalUses": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Primary medical uses."
+        },
+        "otherUses": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Secondary or other possible uses."
+        },
+        "allergyWarnings": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Warnings for allergic reactions."
+        },
+        "alternatives": {
+          "type": "array",
+          "description": "List of alternative medicine names."
+        },
+        "scanCount": {
+          "type": "integer",
+          "description": "Total number of times this medicine has been scanned."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Creation timestamp."
+        }
+      },
+      "required": ["companyId", "companyName", "name", "barcode", "ingredients", "scanCount"]
+    },
+    "ScanLog": {
+      "title": "ScanLog",
+      "description": "A log entry for every time an authorized medicine is scanned.",
+      "type": "object",
+      "properties": {
+        "medicineId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID of the medicine scanned."
+        },
+        "companyId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID of the company that owns the medicine."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "When the scan occurred."
+        }
+      },
+      "required": ["medicineId", "companyId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": "Company",
+      "description": "Collection of approved pharmaceutical companies."
+    },
+    "/company_requests/{requestId}": {
+      "schema": "CompanyRegistrationRequest",
+      "description": "Registration requests submitted by other companies."
+    },
+    "/medicines/{medicineId}": {
+      "schema": "Medicine",
+      "description": "Centralized collection of authorized medicines."
+    },
+    "/scans/{scanId}": {
+      "schema": "ScanLog",
+      "description": "Logs of all authorized medicine scans for analytics."
+    }
+  }
+}

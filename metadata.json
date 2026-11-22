@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Scanurmed2.0",
+  "description": "B2B medicine information platform and scanner guide for pharmaceutical companies and consumers.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

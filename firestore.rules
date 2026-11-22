@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && request.auth.token.email.lower() == 'smrutisikha4679@gmail.com';
+    }
+
+    function isApprovedCompanyEmail() {
+      return isVerifiedUser() && request.auth.token.email.lower() in [
+        'alankritaprakash44@gmail.com',
+        'avishekraul1@gmail.com',
+        'smrutisikha4679@gmail.com'
+      ];
+    }
+
+    function isValidCompany(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid', 'name', 'email', 'representativeName',
+          'passwordHash', 'passwordSalt', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.email is string && data.email.size() <= 254
+        && (!('representativeName' in data) || (data.representativeName is string && data.representativeName.size() > 0 && data.representativeName.size() <= 150))
+        && (!('passwordHash' in data) || (data.passwordHash is string && data.passwordHash.size() == 64 && data.passwordHash.matches('^[a-f0-9]{64}$')))
+        && (!('passwordSalt' in data) || (data.passwordSalt is string && data.passwordSalt.size() >= 16 && data.passwordSalt.size() <= 64 && data.passwordSalt.matches('^[a-f0-9]+$')))
+        && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 64;
+    }
+
+    function isValidCompanyRequest(data) {
+      return data.keys().hasAll(['uid', 'companyName', 'email', 'licenseNumber', 'contactPerson', 'phone', 'status', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid', 'companyName', 'email', 'licenseNumber',
+          'contactPerson', 'phone', 'notes', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.companyName is string && data.companyName.size() > 0 && data.companyName.size() <= 200
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 254
+        && data.licenseNumber is string && data.licenseNumber.size() > 0 && data.licenseNumber.size() <= 100
+        && data.contactPerson is string && data.contactPerson.size() > 0 && data.contactPerson.size() <= 150
+        && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 40
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000))
+        && data.status is string && data.status in ['pending', 'approved', 'rejected']
+        && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 64
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidMedicine(data) {
+      return data.keys().hasAll(['companyId', 'companyName', 'name', 'barcode', 'ingredients', 'scanCount'])
+        && data.keys().hasOnly([
+          'companyId', 'companyName', 'name', 'barcode', 'qr_code',
+          'ingredients', 'dosage', 'sideEffects', 'mfgDate', 'expiryDate',
+          'medicalUses', 'otherUses', 'allergyWarnings', 'alternatives',
+          'scanCount', 'createdAt'
+        ])
+        && isValidId(data.companyId)
+        && data.companyName is string && data.companyName.size() > 0 && data.companyName.size() <= 200
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.barcode is string && data.barcode.size() > 0 && data.barcode.size() <= 64 && data.barcode.matches('^[a-zA-Z0-9_\\-]+$')
+        && (!('qr_code' in data) || (data.qr_code is string && data.qr_code.size() > 0 && data.qr_code.size() <= 64 && data.qr_code.matches('^[a-zA-Z0-9_\\-]+$')))
+        && data.ingredients is list && data.ingredients.size() >= 1 && data.ingredients.size() <= 30 && data.ingredients[0] is string
+        && (!('dosage' in data) || (data.dosage is string && data.dosage.size() <= 1000))
+        && (!('sideEffects' in data) || (data.sideEffects is string && data.sideEffects.size() <= 1000))
+        && (!('mfgDate' in data) || (data.mfgDate is string && data.mfgDate.size() <= 32))
+        && (!('expiryDate' in data) || (data.expiryDate is string && data.expiryDate.size() <= 32))
+        && (!('medicalUses' in data) || (data.medicalUses is string && data.medicalUses.size() <= 1000))
+        && (!('otherUses' in data) || (data.otherUses is string && data.otherUses.size() <= 1000))
+        && (!('allergyWarnings' in data) || (data.allergyWarnings is string && data.allergyWarnings.size() <= 1000))
+        && (!('alternatives' in data) || (data.alternatives is list && data.alternatives.size() <= 20 && (data.alternatives.size() == 0 || data.alternatives[0] is string)))
+        && data.scanCount is int && data.scanCount >= 0
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64));
+    }
+
+    function isValidScanLog(data) {
+      return data.keys().hasAll(['medicineId', 'companyId', 'timestamp'])
+        && data.keys().hasOnly(['medicineId', 'companyId', 'timestamp'])
+        && isValidId(data.medicineId)
+        && isValidId(data.companyId)
+        && data.timestamp is string && data.timestamp.size() > 0 && data.timestamp.size() <= 64;
+    }
+
+    match /companies/{companyId} {
+      allow get: if isValidId(companyId) && isOwner(companyId);
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isApprovedCompanyEmail()
+        && isValidId(companyId)
+        && isOwner(companyId)
+        && isValidCompany(incoming())
+        && incoming().uid == request.auth.uid;
+      allow update: if isApprovedCompanyEmail()
+        && isValidId(companyId)
+        && isOwner(companyId)
+        && isValidCompany(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(companyId) && isAdmin();
+    }
+
+    match /company_requests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) && (isOwner(requestId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(requestId)
+        && isOwner(requestId)
+        && isValidCompanyRequest(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().status == 'pending';
+      allow update: if isAdmin()
+        && isValidId(requestId)
+        && isValidCompanyRequest(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(requestId);
+    }
+
+    match /medicines/{medicineId} {
+      allow get: if isValidId(medicineId);
+      allow list: if true;
+      allow create: if isApprovedCompanyEmail()
+        && isValidId(medicineId)
+        && isValidMedicine(incoming())
+        && (incoming().companyId == request.auth.uid || isAdmin());
+      allow update: if isValidId(medicineId) && isValidMedicine(incoming()) && (
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['scanCount'])
+          && incoming().scanCount == existing().scanCount + 1
+        ) || (
+          isApprovedCompanyEmail()
+          && incoming().companyId == existing().companyId
+          && (existing().companyId == request.auth.uid || isAdmin())
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'ingredients', 'dosage', 'sideEffects', 'barcode', 'qr_code',
+            'mfgDate', 'expiryDate', 'medicalUses', 'otherUses', 'allergyWarnings',
+            'alternatives', 'companyName'
+          ])
+        )
+      );
+      allow delete: if isApprovedCompanyEmail()
+        && isValidId(medicineId)
+        && (existing().companyId == request.auth.uid || isAdmin());
+    }
+
+    match /scans/{scanId} {
+      allow get: if isSignedIn() && isValidId(scanId) && (existing().companyId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.companyId == request.auth.uid || isAdmin());
+      allow create: if isValidId(scanId)
+        && isValidScanLog(incoming())
+        && exists(/databases/$(database)/documents/medicines/$(incoming().medicineId));
+      allow update, delete: if false;
+    }
+  }
+}
