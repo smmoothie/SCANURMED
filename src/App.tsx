@@ -17,7 +17,16 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase';
 import { AppUser } from './types';
 import { getLocalAuthUser, subscribeToAuthChanges, clearLocalAuthUser } from './utils/authSession';
-import { Scan, Search, LogIn, LogOut, Info, Languages, Building2 } from 'lucide-react';
+import {
+  Scan,
+  Search,
+  CircleHelp,
+  LogIn,
+  LogOut,
+  Info,
+  Languages,
+  Building2,
+} from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -146,6 +155,15 @@ function Navbar({ user }: { user: AppUser | User | null }) {
     setLanguage(language === 'en' ? 'hi' : 'en');
   };
 
+  const handleWhyUsClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (location.pathname === '/' && location.hash === '#why-scanurmed') {
+      event.preventDefault();
+      document
+        .getElementById('why-scanurmed')
+        ?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+
   return (
     <header className="bg-white border-b border-[#054A8C] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-8">
@@ -179,6 +197,13 @@ function Navbar({ user }: { user: AppUser | User | null }) {
             icon={<Scan size={16} />}
             label={t('scanner')}
             active={location.pathname === '/scan'}
+          />
+          <NavLink
+            to="/#why-scanurmed"
+            icon={<CircleHelp size={16} />}
+            label="Why Us?"
+            active={location.pathname === '/' && location.hash === '#why-scanurmed'}
+            onClick={handleWhyUsClick}
           />
         </nav>
 
@@ -229,6 +254,13 @@ function Navbar({ user }: { user: AppUser | User | null }) {
       <div className="md:hidden border-t border-[#054A8C]/20 bg-white px-4 py-2 flex items-center justify-around gap-2">
         <NavLink to="/search" icon={<Search size={15} />} label={t('search')} active={location.pathname === '/search'} />
         <NavLink to="/scan" icon={<Scan size={15} />} label={t('scanner')} active={location.pathname === '/scan'} />
+        <NavLink
+          to="/#why-scanurmed"
+          icon={<CircleHelp size={15} />}
+          label="Why Us?"
+          active={location.pathname === '/' && location.hash === '#why-scanurmed'}
+          onClick={handleWhyUsClick}
+        />
       </div>
     </header>
   );
@@ -239,15 +271,18 @@ function NavLink({
   icon,
   label,
   active,
+  onClick,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }) {
   return (
     <Link
       to={to}
+      onClick={onClick}
       className={`flex items-center gap-1.5 text-sm font-semibold transition-colors relative py-1 whitespace-nowrap shrink-0 ${
         active
           ? 'text-[#FA6806] border-b-2 border-[#FA6806]'

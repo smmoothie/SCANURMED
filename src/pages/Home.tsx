@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { AppUser } from '../types';
 import {
@@ -10,19 +10,78 @@ import {
   Loader2,
   ChevronRight,
   AlertCircle,
-  FileText
+  FileText,
+  BadgeCheck,
+  BookOpenCheck,
+  HeartPulse,
+  Cpu,
+  ArrowUpRight,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { seedDatabase } from '../utils/seedData';
 import { useLanguage } from '../context/LanguageContext';
 import { AUTHORIZED_MEDICINES } from '../data/authorizedMedicines';
 import { isApprovedCompanyEmail } from '../data/approvedCompanies';
 import { PWAInstallButton } from '../components/PWAInstallButton';
 
+const WHY_US_FEATURES = [
+  {
+    icon: BadgeCheck,
+    number: '01',
+    title: 'Authenticity at Your Fingertips',
+    description:
+      'Verify medicine information through QR-based identification and authorised database checks.',
+    accent: 'border-l-[#16734B]',
+    iconStyle: 'bg-[#E8F3ED] text-[#16734B]',
+  },
+  {
+    icon: BookOpenCheck,
+    number: '02',
+    title: 'Transparency You Can Trust',
+    description:
+      'Access clear and structured medicine information without navigating complicated pharmaceutical terminology.',
+    accent: 'border-l-[#1461A0]',
+    iconStyle: 'bg-[#EAF3FA] text-[#1461A0]',
+  },
+  {
+    icon: HeartPulse,
+    number: '03',
+    title: 'Safety Through Awareness',
+    description:
+      'Help consumers make informed decisions with medicine details, expiry information and relevant safety alerts where available.',
+    accent: 'border-l-[#C65A1A]',
+    iconStyle: 'bg-[#FFF0E6] text-[#C65A1A]',
+  },
+  {
+    icon: Cpu,
+    number: '04',
+    title: 'Technology with a Purpose',
+    description:
+      'Smart scanning, secure data handling and accessible digital experiences make medicine verification easier for everyone.',
+    accent: 'border-l-[#367A82]',
+    iconStyle: 'bg-[#E9F4F3] text-[#367A82]',
+  },
+] as const;
+
 export default function Home({ user }: { user: AppUser | User | null }) {
   const [seeding, setSeeding] = useState(false);
   const [seeded, setSeeded] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
   const { t } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash !== '#why-scanurmed') return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById('why-scanurmed')
+        ?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, shouldReduceMotion]);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -145,6 +204,111 @@ export default function Home({ user }: { user: AppUser | User | null }) {
             </div>
           </div>
         </div>
+      </section>
+
+      <section
+        id="why-scanurmed"
+        aria-labelledby="why-scanurmed-title"
+        className="scroll-mt-36 overflow-hidden rounded-2xl border border-[#054A8C]/30 bg-white p-6 shadow-sm sm:p-8 md:scroll-mt-24 lg:p-10"
+      >
+        <div className="grid gap-10 lg:grid-cols-12 lg:items-center lg:gap-12">
+          <motion.div
+            className="space-y-6 lg:col-span-4"
+            initial={shouldReduceMotion ? false : { opacity: 0, x: -18 }}
+            whileInView={shouldReduceMotion ? undefined : { opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+          >
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#16734B]/20 bg-[#E8F3ED] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#16734B]">
+              <BadgeCheck size={14} />
+              Why SCANURMED
+            </div>
+            <div className="space-y-4">
+              <h2
+                id="why-scanurmed-title"
+                className="text-3xl font-bold leading-tight text-[#0F2942] sm:text-4xl"
+                style={{ textWrap: 'balance' }}
+              >
+                Why Choose SCANURMED?
+              </h2>
+              <p className="text-lg font-semibold leading-relaxed text-[#1461A0]">
+                Because your health deserves more than assumptions. It deserves verification.
+              </p>
+              <p className="text-sm leading-7 text-[#3B5875] sm:text-base">
+                SCANURMED bridges the gap between pharmaceutical information and consumer trust,
+                making medicine verification simpler, smarter and more accessible.
+              </p>
+            </div>
+            <Link
+              to="/scan"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-5 py-3 text-sm font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#E05A00] hover:shadow-lg"
+            >
+              <Scan size={17} />
+              Scan a medicine
+              <ChevronRight size={16} />
+            </Link>
+          </motion.div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8">
+            {WHY_US_FEATURES.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <motion.article
+                  key={feature.number}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+                  whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  whileHover={shouldReduceMotion ? undefined : { y: -5 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{
+                    duration: 0.45,
+                    delay: shouldReduceMotion ? 0 : index * 0.07,
+                    ease: 'easeOut',
+                  }}
+                  className={`group rounded-xl border border-[#054A8C]/15 border-l-4 ${feature.accent} bg-[#FBFDFE] p-5 shadow-[0_5px_18px_rgba(15,41,66,0.04)] transition-shadow duration-300 hover:shadow-[0_14px_30px_rgba(15,41,66,0.11)] sm:p-6`}
+                >
+                  <div className="mb-5 flex items-center justify-between">
+                    <span
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl ${feature.iconStyle} transition-transform duration-300 group-hover:scale-105`}
+                    >
+                      <Icon size={21} strokeWidth={1.8} />
+                    </span>
+                    <span className="font-mono text-xs font-bold tracking-widest text-[#3B5875]/55">
+                      {feature.number}
+                    </span>
+                  </div>
+                  <h3 className="mb-2 text-base font-bold leading-snug text-[#0F2942] sm:text-lg">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm leading-6 text-[#3B5875]">{feature.description}</p>
+                </motion.article>
+              );
+            })}
+          </div>
+        </div>
+
+        <motion.div
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
+          whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="mt-8 flex flex-col gap-5 rounded-xl bg-[#0F2942] px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8"
+        >
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A9D9C1]">
+              SCANURMED
+            </p>
+            <p className="text-xl font-bold sm:text-2xl">
+              One Scan. More Clarity. Greater Confidence.
+            </p>
+          </div>
+          <Link
+            to="/search"
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white px-5 py-3 text-sm font-bold text-[#054A8C] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#EAF3FA] hover:shadow-lg sm:self-auto"
+          >
+            Explore SCANURMED
+            <ArrowUpRight size={17} />
+          </Link>
+        </motion.div>
       </section>
 
       {/* Verification Workflow */}
