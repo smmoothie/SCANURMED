@@ -23,6 +23,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { AUTHORIZED_MEDICINES } from '../data/authorizedMedicines';
 import { isApprovedCompanyEmail } from '../data/approvedCompanies';
 import { PWAInstallButton } from '../components/PWAInstallButton';
+import { ReachOutSection } from '../components/ReachOutSection';
 
 const WHY_US_FEATURES = [
   {
@@ -327,6 +328,8 @@ export default function Home({ user }: { user: AppUser | User | null }) {
           <Step number="04" title={t('step4_title')} description={t('step4_sub')} />
         </div>
       </section>
+
+      <ReachOutSection />
     </div>
   );
 }

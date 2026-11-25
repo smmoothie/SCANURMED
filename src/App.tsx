@@ -21,6 +21,7 @@ import {
   Scan,
   Search,
   CircleHelp,
+  Phone,
   LogIn,
   LogOut,
   Info,
@@ -199,12 +200,21 @@ function Navbar({
     }
   };
 
+  const handleReachOutClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (location.pathname === '/' && location.hash === '#reachout') {
+      event.preventDefault();
+      document
+        .getElementById('reachout')
+        ?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+
   return (
     <header className="bg-white border-b border-[#054A8C] sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 sm:gap-8">
         <Link
           to="/"
-          className="text-2xl font-bold tracking-tight text-[#054A8C] whitespace-nowrap shrink-0 flex items-center gap-3 group"
+          className="text-lg sm:text-2xl font-bold tracking-tight text-[#054A8C] whitespace-nowrap shrink-0 flex items-center gap-2 sm:gap-3 group"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           <motion.img
@@ -215,12 +225,12 @@ function Navbar({
             animate={shouldReduceMotion ? undefined : { rotate: 0 }}
             whileHover={shouldReduceMotion ? undefined : { rotate: 360 }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="w-14 h-14 object-contain shrink-0"
+            className="w-8 h-8 sm:w-14 sm:h-14 object-contain shrink-0"
           />
           <span>Scanurmed</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-8">
           <NavLink
             to="/search"
             icon={<Search size={16} />}
@@ -240,16 +250,25 @@ function Navbar({
             active={location.pathname === '/' && location.hash === '#why-scanurmed'}
             onClick={handleWhyUsClick}
           />
+          <NavLink
+            to="/#reachout"
+            icon={<Phone size={16} />}
+            label="Reach Out"
+            active={location.pathname === '/' && location.hash === '#reachout'}
+            onClick={handleReachOutClick}
+          />
         </nav>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={toggleLanguage}
-            className="px-3 py-2 rounded-lg border border-[#054A8C] bg-white hover:bg-[#7BBCE5]/20 text-[#054A8C] transition-colors text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            aria-label={language === 'en' ? 'Switch language to Hindi' : 'Switch language to English'}
+            title={language === 'en' ? 'Switch language to Hindi' : 'Switch language to English'}
+            className="px-2 sm:px-3 py-2 rounded-lg border border-[#054A8C] bg-white hover:bg-[#7BBCE5]/20 text-[#054A8C] transition-colors text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
             <Languages size={14} />
-            <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
+            <span className="hidden sm:inline">{language === 'en' ? 'हिन्दी' : 'English'}</span>
           </button>
 
           <button
@@ -287,7 +306,7 @@ function Navbar({
             <button
               type="button"
               onClick={handleLogin}
-              className="bg-[#FA6806] text-white border border-[#054A8C] px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
+              className="bg-[#FA6806] text-white border border-[#054A8C] px-2 sm:px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
             >
               <LogIn size={16} />
               <span className="hidden sm:inline">{t('login')}</span>
@@ -297,15 +316,24 @@ function Navbar({
       </div>
 
       {/* Compact mobile nav strip */}
-      <div className="md:hidden border-t border-[#054A8C]/20 bg-white px-4 py-2 flex items-center justify-around gap-2">
-        <NavLink to="/search" icon={<Search size={15} />} label={t('search')} active={location.pathname === '/search'} />
-        <NavLink to="/scan" icon={<Scan size={15} />} label={t('scanner')} active={location.pathname === '/scan'} />
+      <div className="lg:hidden border-t border-[#054A8C]/20 bg-white px-2 sm:px-4 py-2 flex items-center justify-around gap-1 sm:gap-2">
+        <NavLink compact to="/search" icon={<Search size={15} />} label={t('search')} active={location.pathname === '/search'} />
+        <NavLink compact to="/scan" icon={<Scan size={15} />} label={t('scanner')} active={location.pathname === '/scan'} />
         <NavLink
+          compact
           to="/#why-scanurmed"
           icon={<CircleHelp size={15} />}
           label="Why Us?"
           active={location.pathname === '/' && location.hash === '#why-scanurmed'}
           onClick={handleWhyUsClick}
+        />
+        <NavLink
+          compact
+          to="/#reachout"
+          icon={<Phone size={15} />}
+          label="Reach Out"
+          active={location.pathname === '/' && location.hash === '#reachout'}
+          onClick={handleReachOutClick}
         />
       </div>
     </header>
@@ -318,18 +346,20 @@ function NavLink({
   label,
   active,
   onClick,
+  compact = false,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  compact?: boolean;
 }) {
   return (
     <Link
       to={to}
       onClick={onClick}
-      className={`flex items-center gap-1.5 text-sm font-semibold transition-colors relative py-1 whitespace-nowrap shrink-0 ${
+      className={`flex items-center ${compact ? 'gap-1 text-xs sm:gap-1.5 sm:text-sm' : 'gap-1.5 text-sm'} font-semibold transition-colors relative py-1 whitespace-nowrap shrink-0 ${
         active
           ? 'text-[#FA6806] border-b-2 border-[#FA6806]'
           : 'text-[#054A8C] hover:text-[#FA6806]'
@@ -346,7 +376,7 @@ function Footer() {
   return (
     <footer className="bg-white border-t border-[#054A8C] py-10 mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 gap-8 items-start md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <div
               className="flex items-center gap-3 text-[#054A8C] font-bold text-xl"
@@ -364,12 +394,60 @@ function Footer() {
               {t('hero_sub')}
             </p>
           </div>
-          <div className="bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl p-5 flex gap-3 items-start">
+
+          <nav aria-label="Footer navigation" className="space-y-3">
+            <h2 className="font-bold text-[#0F2942]">Quick Links</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <Link to="/search" className="text-[#054A8C] transition-colors hover:text-[#FA6806]">
+                {t('search')}
+              </Link>
+              <Link to="/scan" className="text-[#054A8C] transition-colors hover:text-[#FA6806]">
+                {t('scanner')}
+              </Link>
+              <Link
+                to="/#why-scanurmed"
+                className="text-[#054A8C] transition-colors hover:text-[#FA6806]"
+              >
+                Why Us?
+              </Link>
+              <Link
+                to="/#reachout"
+                className="text-[#054A8C] transition-colors hover:text-[#FA6806]"
+              >
+                Reach Out
+              </Link>
+            </div>
+          </nav>
+
+          <div className="space-y-3">
+            <h2 className="font-bold text-[#0F2942]">Call Us</h2>
+            <div className="space-y-2">
+              <a
+                href="tel:+917488152499"
+                className="flex items-center gap-2 text-sm text-[#054A8C] transition-colors hover:text-[#16734B]"
+              >
+                <Phone size={15} />
+                +91 7488152499
+              </a>
+              <a
+                href="tel:+918093387542"
+                className="flex items-center gap-2 text-sm text-[#054A8C] transition-colors hover:text-[#16734B]"
+              >
+                <Phone size={15} />
+                +91 8093387542
+              </a>
+            </div>
+          </div>
+
+          <div className="bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl p-5 flex gap-3 items-start md:col-span-2 lg:col-span-3">
             <Info className="text-[#054A8C] shrink-0 mt-0.5" size={18} />
             <p className="text-[#0F2942] text-xs leading-relaxed">
               <strong>Educational Disclaimer:</strong> This application provides reference information exclusively for the 20 authorized medicine QR labels. Always consult a qualified healthcare professional before taking any medication.
             </p>
           </div>
+        </div>
+        <div className="mt-8 border-t border-[#054A8C]/20 pt-5 text-xs text-[#3B5875]">
+          &copy; {new Date().getFullYear()} SCANURMED. All rights reserved.
         </div>
       </div>
     </footer>

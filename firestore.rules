@@ -108,6 +108,32 @@ service cloud.firestore {
         && data.timestamp is string && data.timestamp.size() > 0 && data.timestamp.size() <= 64;
     }
 
+    function isValidContactMessage(data) {
+      return data.keys().hasAll(['name', 'email', 'subject', 'message', 'createdAt'])
+        && data.keys().hasOnly(['name', 'email', 'phone', 'subject', 'message', 'createdAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.name.matches('.*\\S.*')
+        && data.email is string && data.email.size() > 3 && data.email.size() <= 254
+        && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && (!('phone' in data) || (
+          data.phone is string
+          && data.phone.size() >= 10
+          && data.phone.size() <= 13
+          && data.phone.matches('^\\+?[0-9]{10,13}$')
+        ))
+        && data.subject is string && data.subject.size() > 0 && data.subject.size() <= 200
+        && data.subject.matches('.*\\S.*')
+        && data.message is string && data.message.size() > 0 && data.message.size() <= 5000
+        && data.message.matches('.*\\S.*')
+        && data.createdAt == request.time;
+    }
+
+    match /contact_messages/{messageId} {
+      allow create: if isValidId(messageId) && isValidContactMessage(incoming());
+      allow get, list: if isAdmin() && isValidId(messageId);
+      allow update, delete: if false;
+    }
+
     match /companies/{companyId} {
       allow get: if isValidId(companyId) && isOwner(companyId);
       allow list: if isSignedIn() && resource.data.uid == request.auth.uid;

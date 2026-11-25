@@ -149,6 +149,10 @@ html[data-theme='dark'] [class~='text-[#334E68]'] {
   color: #b7c8d8;
 }
 
+html[data-theme='dark'] [class~='text-[#B54708]'] {
+  color: #ffb36b;
+}
+
 html[data-theme='dark'] [class*='border-[#054A8C]'] {
   border-color: #38536a;
 }
@@ -169,4 +173,16 @@ html[data-theme='dark'] [class~='hover:bg-[#F7FAFC]']:hover,
 html[data-theme='dark'] [class~='hover:bg-white']:hover,
 html[data-theme='dark'] [class~='focus:bg-white']:focus {
   background-color: #1a2c3b;
+}
+
+html[data-theme='dark'] [class~='hover:bg-[#E8F3ED]/60']:hover {
+  background-color: #203e34;
+}
+
+html[data-theme='dark'] [class~='hover:text-[#16734B]']:hover {
+  color: #91d4aa;
+}
+
+html[data-theme='dark'] [class~='focus:border-[#16734B]']:focus {
+  border-color: #91d4aa;
 }
