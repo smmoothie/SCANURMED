@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { CompanyRegistrationRequest } from '../types';
+import { CompanyRegistrationRequest, AppUser } from '../types';
 import { OperationType, handleFirestoreError } from '../utils/firestoreError';
 import {
   Building2,
@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
-export const CompanyRegistrationForm: React.FC<{ user: User }> = ({ user }) => {
+export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ user }) => {
   const [existingRequest, setExistingRequest] =
     useState<CompanyRegistrationRequest | null>(null);
   const [loading, setLoading] = useState(true);

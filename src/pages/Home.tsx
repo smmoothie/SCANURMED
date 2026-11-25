@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { User } from 'firebase/auth';
+import { AppUser } from '../types';
 import {
   Scan,
   Search,
@@ -17,7 +18,7 @@ import { AUTHORIZED_MEDICINES } from '../data/authorizedMedicines';
 import { isApprovedCompanyEmail } from '../data/approvedCompanies';
 import { PWAInstallButton } from '../components/PWAInstallButton';
 
-export default function Home({ user }: { user: User | null }) {
+export default function Home({ user }: { user: AppUser | User | null }) {
   const [seeding, setSeeding] = useState(false);
   const [seeded, setSeeded] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
