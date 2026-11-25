@@ -26,6 +26,8 @@ import {
   Info,
   Languages,
   Building2,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -40,12 +42,33 @@ import CompanyPortalPage from './pages/CompanyPortalPage';
 import SearchPage from './pages/SearchPage';
 
 const LOGO_SRC = '/assets/aistudio/image_79859417.png';
+const THEME_STORAGE_KEY = 'scanurmed_theme';
+type Theme = 'light' | 'dark';
+
+function getSavedTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (error) {
+    console.warn('Unable to read saved theme:', error);
+    return 'light';
+  }
+}
 
 function AppContent() {
   const [user, setUser] = useState<AppUser | User | null>(() => getLocalAuthUser());
+  const [theme, setTheme] = useState<Theme>(getSavedTheme);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showIntroRoll, setShowIntroRoll] = useState(true);
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      console.warn('Unable to save theme preference:', error);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -97,7 +120,11 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7FAFC] text-[#0F2942] font-sans selection:bg-[#7BBCE5]/30 selection:text-[#054A8C]">
-      <Navbar user={user} />
+      <Navbar
+        user={user}
+        theme={theme}
+        onToggleTheme={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
+      />
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <AnimatePresence mode="wait">
           <Routes>
@@ -128,7 +155,15 @@ export default function App() {
   );
 }
 
-function Navbar({ user }: { user: AppUser | User | null }) {
+function Navbar({
+  user,
+  theme,
+  onToggleTheme,
+}: {
+  user: AppUser | User | null;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
@@ -215,6 +250,17 @@ function Navbar({ user }: { user: AppUser | User | null }) {
           >
             <Languages size={14} />
             <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            aria-pressed={theme === 'dark'}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#054A8C]/40 bg-white text-[#054A8C] transition-colors hover:bg-[#7BBCE5]/20"
+          >
+            {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
           </button>
 
           {user ? (
