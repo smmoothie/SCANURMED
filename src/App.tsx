@@ -15,6 +15,8 @@ import {
 } from 'react-router-dom';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase';
+import { AppUser } from './types';
+import { getLocalAuthUser, subscribeToAuthChanges, clearLocalAuthUser } from './utils/authSession';
 import { Scan, Search, LogIn, LogOut, Info, Languages, Building2 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -31,7 +33,7 @@ import SearchPage from './pages/SearchPage';
 const LOGO_SRC = '/assets/aistudio/image_79859417.png';
 
 function AppContent() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | User | null>(() => getLocalAuthUser());
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showIntroRoll, setShowIntroRoll] = useState(true);
   const shouldReduceMotion = useReducedMotion();
@@ -44,11 +46,24 @@ function AppContent() {
   }, [shouldReduceMotion]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribeFirebase = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        const localUser = getLocalAuthUser();
+        setUser(localUser);
+      }
       setIsAuthReady(true);
     });
-    return () => unsubscribe();
+
+    const unsubscribeLocal = subscribeToAuthChanges((changedUser) => {
+      setUser(changedUser || auth.currentUser);
+    });
+
+    return () => {
+      unsubscribeFirebase();
+      unsubscribeLocal();
+    };
   }, []);
 
   if (!isAuthReady || showIntroRoll) {
@@ -104,7 +119,7 @@ export default function App() {
   );
 }
 
-function Navbar({ user }: { user: User | null }) {
+function Navbar({ user }: { user: AppUser | User | null }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
@@ -118,7 +133,12 @@ function Navbar({ user }: { user: User | null }) {
     if (user?.uid) {
       sessionStorage.removeItem(`scanurmed_unlocked_${user.uid}`);
     }
-    await signOut(auth);
+    clearLocalAuthUser();
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('SignOut warning:', e);
+    }
     navigate('/');
   };
 

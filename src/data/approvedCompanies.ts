@@ -15,7 +15,7 @@ export const APPROVED_COMPANY_MEMBERS: readonly ApprovedCompanyMember[] = [
   },
   {
     email: 'avishekraul1@gmail.com',
-    name: 'Abhishek Raul',
+    name: 'Avishek Raul',
     roleLabel: 'Authorized Representative',
   },
   {

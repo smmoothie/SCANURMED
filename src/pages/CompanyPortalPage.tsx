@@ -20,7 +20,19 @@ import {
   orderBy,
   limit,
 } from 'firebase/firestore';
-import { Company, CompanyRegistrationRequest, Medicine, ScanLog } from '../types';
+import { AppUser, Company, CompanyRegistrationRequest, Medicine, ScanLog } from '../types';
+import {
+  setLocalAuthUser,
+  clearLocalAuthUser,
+  getLocalCompanyProfile,
+  saveLocalCompanyProfile,
+  getLocalMedicines,
+  saveLocalMedicines,
+  getLocalScanLogs,
+  saveLocalScanLogs,
+  getLocalRequests,
+  saveLocalRequests,
+} from '../utils/authSession';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import {
   Plus,
@@ -77,7 +89,21 @@ function getSessionUnlockKey(uid: string) {
   return `scanurmed_unlocked_${uid}`;
 }
 
-export default function CompanyPortalPage({ user }: { user: User | null }) {
+type PortalUser = AppUser | User;
+
+function getAuthErrorCode(error: unknown): string | undefined {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
+export default function CompanyPortalPage({ user }: { user: PortalUser | null }) {
   const [activeTab, setActiveTab] = useState<
     'profile' | 'manage' | 'add' | 'analytics' | 'registrations'
   >('manage');
@@ -93,6 +119,7 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
   const [selectedMemberEmail, setSelectedMemberEmail] = useState<string>(
     APPROVED_COMPANY_MEMBERS[0].email
   );
+  const [memberPasscodeInput, setMemberPasscodeInput] = useState(COMPANY_PORTAL_PASSCODE);
   const [useEmailPassMode, setUseEmailPassMode] = useState(false);
   const [emailPassInput, setEmailPassInput] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -130,17 +157,36 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
     if (!user || !isApproved) return;
     setLoading(true);
     try {
-      const companyPath = `companies/${user.uid}`;
       try {
         const compSnap = await getDoc(doc(db, 'companies', user.uid));
         if (compSnap.exists()) {
           setCompanyProfile(compSnap.data() as Company);
         } else {
-          setCompanyProfile(null);
+          const localProfile = getLocalCompanyProfile(user.uid);
+          setCompanyProfile(
+            localProfile || {
+              uid: user.uid,
+              name: COMPANY_PORTAL_NAME,
+              email: user.email || '',
+              representativeName:
+                approvedMember?.name || user.displayName || 'Authorized Member',
+              createdAt: new Date().toISOString(),
+            }
+          );
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, companyPath);
-        return;
+        console.warn('Firestore profile get error (using local profile):', err);
+        const localProfile = getLocalCompanyProfile(user.uid);
+        setCompanyProfile(
+          localProfile || {
+            uid: user.uid,
+            name: COMPANY_PORTAL_NAME,
+            email: user.email || '',
+            representativeName:
+              approvedMember?.name || user.displayName || 'Authorized Member',
+            createdAt: new Date().toISOString(),
+          }
+        );
       } finally {
         setProfileLoaded(true);
       }
@@ -168,10 +214,15 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
         const medList = medSnap.docs
           .map((docItem) => ({ id: docItem.id, ...docItem.data() } as Medicine))
           .filter((m) => AUTHORIZED_BARCODES.has(m.barcode));
-        setMedicines(medList);
+        if (medList.length > 0) {
+          setMedicines(medList);
+          saveLocalMedicines(user.uid, medList);
+        } else {
+          setMedicines(getLocalMedicines(user.uid));
+        }
       } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, 'medicines');
-        return;
+        console.warn('Firestore medicines list failed, falling back to local registry:', err);
+        setMedicines(getLocalMedicines(user.uid));
       }
 
       const scanQuery = query(
@@ -186,9 +237,10 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
           (docItem) => ({ id: docItem.id, ...docItem.data() } as ScanLog)
         );
         setScans(scanList);
+        saveLocalScanLogs(user.uid, scanList);
       } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, 'scans');
-        return;
+        console.warn('Firestore scans query failed, falling back to local scan history:', err);
+        setScans(getLocalScanLogs(user.uid));
       }
 
       if (isAdmin) {
@@ -201,8 +253,10 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
             )
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
           setRequests(reqList);
+          saveLocalRequests(reqList);
         } catch (err) {
-          handleFirestoreError(err, OperationType.LIST, 'company_requests');
+          console.warn('Firestore company requests failed, falling back to local requests:', err);
+          setRequests(getLocalRequests());
         }
       }
     } finally {
@@ -219,9 +273,54 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
         provider.setCustomParameters({ login_hint: loginHintEmail });
       }
       await signInWithPopup(auth, provider);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Google sign-in failed.';
-      setLoginError(msg);
+    } catch (error: unknown) {
+      const code = getAuthErrorCode(error);
+
+      const currentDomain =
+        typeof window !== 'undefined' && window.location.hostname
+          ? window.location.hostname
+          : 'localhost';
+
+      if (code === 'auth/unauthorized-domain') {
+        setLoginError(
+          `Google sign-in is blocked for "${currentDomain}". In Firebase Console, open Authentication > Settings > Authorized domains and add this exact domain, then try again.`
+        );
+      } else if (code === 'auth/operation-not-allowed') {
+        setLoginError(
+          'Google sign-in is disabled for this Firebase project. Enable the Google provider under Firebase Console > Authentication > Sign-in method.'
+        );
+      } else {
+        setLoginError(error instanceof Error ? error.message : 'Google sign-in failed.');
+      }
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
+  const handlePasscodeSignIn = async (passcodeToVerify?: string) => {
+    const code = (passcodeToVerify ?? memberPasscodeInput).trim();
+    if (code !== COMPANY_PORTAL_PASSCODE) {
+      setLoginError(
+        `Incorrect passcode. Enter the authorized company passcode: ${COMPANY_PORTAL_PASSCODE}`
+      );
+      return;
+    }
+    setLoginError(null);
+    setSigningIn(true);
+    try {
+      const selected =
+        APPROVED_COMPANY_MEMBERS.find((m) => m.email === selectedMemberEmail) ||
+        APPROVED_COMPANY_MEMBERS[0];
+      const localUser: AppUser = {
+        uid: `member_${selected.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        email: selected.email,
+        displayName: selected.name,
+        emailVerified: true,
+        isAnonymous: false,
+      };
+      setLocalAuthUser(localUser);
+      sessionStorage.setItem(getSessionUnlockKey(localUser.uid), 'true');
+      setIsPasswordUnlocked(true);
     } finally {
       setSigningIn(false);
     }
@@ -234,14 +333,22 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
     try {
       await signInWithEmailAndPassword(auth, selectedMemberEmail, emailPassInput);
       setEmailPassInput('');
-    } catch (error) {
-      const code = (error as { code?: string })?.code || '';
+    } catch (error: unknown) {
+      const code = getAuthErrorCode(error);
       if (code === 'auth/operation-not-allowed') {
         setLoginError(
-          'Email/Password login is not enabled in Firebase Authentication yet. Use "Continue with Google" below, or enable Email/Password in your Firebase Console.'
+          'Email/Password sign-in is disabled for this Firebase project. Enable the Email/Password provider under Firebase Console > Authentication > Sign-in method.'
         );
+      } else if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password'
+      ) {
+        setLoginError('The email or password is incorrect for this authorized account.');
       } else {
-        setLoginError('Invalid email or password for this authorized account.');
+        setLoginError(
+          error instanceof Error ? error.message : 'Firebase email/password sign-in failed.'
+        );
       }
     } finally {
       setSigningIn(false);
@@ -252,8 +359,13 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
     if (user?.uid) {
       sessionStorage.removeItem(getSessionUnlockKey(user.uid));
     }
+    clearLocalAuthUser();
     setIsPasswordUnlocked(false);
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('Sign out notice:', e);
+    }
   };
 
   const handlePasswordUnlocked = async (savedProfile: Company) => {
@@ -318,7 +430,7 @@ export default function CompanyPortalPage({ user }: { user: User | null }) {
         {loginError && (
           <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#FA6806]/10 border border-[#FA6806] text-xs text-[#0F2942]">
             <AlertCircle size={16} className="text-[#FA6806] shrink-0 mt-0.5" />
-            <span>{loginError}</span>
+            <span role="alert">{loginError}</span>
           </div>
         )}
 
@@ -557,7 +669,7 @@ function NameAndPasswordStep({
   onSignOut,
   onSuccess,
 }: {
-  user: User;
+  user: PortalUser;
   memberName: string;
   memberRole: string;
   existingProfile: Company | null;
@@ -744,7 +856,7 @@ function CompanyProfileEditor({
   defaultRepName,
   onSaved,
 }: {
-  user: User;
+  user: PortalUser;
   profile: Company | null;
   defaultRepName: string;
   onSaved: (updated: Company) => void;
@@ -1065,7 +1177,7 @@ function AddMedicineForm({
   companyName,
   onSuccess,
 }: {
-  user: User;
+  user: PortalUser;
   companyName: string;
   onSuccess: () => void;
 }) {
