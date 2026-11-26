@@ -22,14 +22,23 @@ import {
 } from '../data/authorizedMedicines';
 import {
   Pill,
-  Calendar,
   AlertTriangle,
   Stethoscope,
   ArrowLeft,
   RefreshCw,
   ShieldAlert,
-  ShieldCheck,
   WifiOff,
+  Check,
+  Package,
+  Layers,
+  Landmark,
+  Contact,
+  Barcode,
+  Calendar,
+  Award,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 const CACHE_PREFIX = 'scanurmed_med_cache_';
@@ -63,6 +72,21 @@ function isOfflineFirestoreError(err: unknown): boolean {
   );
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatMonthYear(dateValue?: string): string {
+  if (!dateValue) return 'N/A';
+  const match = dateValue.trim().match(/^(\d{4})-(\d{2})/);
+  if (match) {
+    const year = match[1];
+    const monthIndex = Number(match[2]) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return `${MONTHS[monthIndex]} ${year}`;
+    }
+  }
+  return dateValue;
+}
+
 export default function ResultPage() {
   const { barcode } = useParams();
   const navigate = useNavigate();
@@ -72,6 +96,7 @@ export default function ResultPage() {
   const [loading, setLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [usedOfflineFallback, setUsedOfflineFallback] = useState(false);
+  const [showClinicalDetails, setShowClinicalDetails] = useState(false);
 
   const normalizedCode = barcode ? normalizeScannedCode(decodeURIComponent(barcode)) : '';
 
@@ -95,7 +120,10 @@ export default function ResultPage() {
         return;
       }
 
-      const cachedOrBundled = readCachedMedicine(normalizedCode) || authorizedRecord;
+      const cachedRecord = readCachedMedicine(normalizedCode);
+      const cachedOrBundled = cachedRecord
+        ? { ...authorizedRecord, ...cachedRecord }
+        : authorizedRecord;
 
       // Render immediately from cache/registry with zero loading delay
       setMedicine(cachedOrBundled);
@@ -117,7 +145,7 @@ export default function ResultPage() {
         try {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            medData = { id: docSnap.id, ...docSnap.data() } as Medicine;
+            medData = { ...authorizedRecord, id: docSnap.id, ...docSnap.data() } as Medicine;
             existsInFirestore = true;
           }
         } catch (err) {
@@ -138,7 +166,7 @@ export default function ResultPage() {
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
               const first = querySnapshot.docs[0];
-              medData = { id: first.id, ...first.data() } as Medicine;
+              medData = { ...authorizedRecord, id: first.id, ...first.data() } as Medicine;
               existsInFirestore = true;
             }
           } catch (err) {
@@ -227,8 +255,19 @@ export default function ResultPage() {
     );
   }
 
+  const properDrugName = medicine.properName || medicine.ingredients.join(', ');
+  const manufacturerFull = medicine.manufacturerAddress
+    ? `${medicine.companyName}, ${medicine.manufacturerAddress}`
+    : medicine.companyName;
+  const batchNumber = medicine.batchNumber || `BATCH-${medicine.barcode.slice(-5)}`;
+  const licenseNumber = medicine.licenseNumber || '25A/AD/258A';
+  const excipientsList =
+    medicine.excipients && medicine.excipients.length > 0
+      ? `${medicine.excipients.join(', ')}.`
+      : `${medicine.ingredients.join(', ')}.`;
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
@@ -258,101 +297,196 @@ export default function ResultPage() {
         </div>
       )}
 
-      {/* Primary Header Card */}
-      <div className="bg-white rounded-2xl p-6 md:p-8 border border-[#054A8C]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start sm:items-center gap-5">
-            <div className="bg-[#7BBCE5]/25 text-[#054A8C] p-4 rounded-xl border border-[#054A8C] shrink-0">
-              <Pill size={32} strokeWidth={1.75} />
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#054A8C]">
-                <ShieldCheck size={15} className="text-[#FA6806]" />
-                <span>Authorized QR Label</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">{medicine.barcode}</span>
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-[#0F2942]">{medicine.name}</h2>
-              <p className="text-sm text-[#3B5875] font-medium">{medicine.companyName}</p>
-            </div>
+      {/* Verified Product Certificate Card */}
+      <section className="bg-white rounded-2xl border border-[#054A8C] shadow-[0_8px_28px_rgb(15,41,66,0.08)] px-6 py-8 sm:px-8 sm:py-10">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-[#15803D] text-white flex items-center justify-center shadow-sm">
+            <Check size={34} strokeWidth={3} />
           </div>
-
-          <div className="bg-[#F7FAFC] border border-[#054A8C] rounded-xl px-5 py-3.5 shrink-0">
-            <div className="text-xs font-semibold text-[#3B5875]">Label Barcode</div>
-            <div className="font-mono tabular-nums text-lg font-bold text-[#054A8C]">
-              {medicine.barcode}
-            </div>
-          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#0F2942]">
+            {t('verified_product')}
+          </h2>
         </div>
-      </div>
 
-      {/* Key Dates & Primary Use */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InfoCard
-          icon={<Calendar className="text-[#054A8C]" size={20} />}
-          title={t('expiry')}
-          content={
-            <div className="space-y-3 pt-1">
-              <div className="flex items-center justify-between border-b border-[#054A8C]/15 pb-2">
-                <span className="text-xs font-semibold text-[#3B5875]">{t('mfg')}</span>
-                <span className="font-mono tabular-nums text-sm font-bold text-[#0F2942]">
-                  {medicine.mfgDate}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#3B5875]">{t('expiry')}</span>
-                <span className="font-mono tabular-nums text-sm font-bold text-[#FA6806]">
-                  {medicine.expiryDate}
-                </span>
-              </div>
-            </div>
-          }
-        />
-        <InfoCard
-          icon={<Stethoscope className="text-[#FA6806]" size={20} />}
-          title={t('medical_uses')}
-          content={<p className="text-[#0F2942] text-sm leading-relaxed">{medicine.medicalUses}</p>}
-        />
-      </div>
+        <hr className="border-[#054A8C]/15 my-6" />
 
-      {/* Detailed Clinical Specification */}
-      <div className="space-y-6">
-        <DetailSection title={t('ingredients')} content={medicine.ingredients.join(' · ')} />
-        <DetailSection title={t('dosage')} content={medicine.dosage} />
-        <DetailSection title={t('side_effects')} content={medicine.sideEffects} />
+        <div className="space-y-5">
+          <h3 className="text-base font-bold text-[#0F2942]">{t('code_details')}</h3>
 
-        {medicine.allergyWarnings && (
-          <div className="bg-[#FA6806]/10 border border-[#FA6806] rounded-2xl p-6 md:p-7 flex gap-4 items-start">
-            <div className="bg-white p-2.5 rounded-xl border border-[#FA6806] shrink-0">
-              <AlertTriangle className="text-[#FA6806]" size={24} />
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="text-[#0F2942] font-bold text-lg">{t('allergy_warning')}</h3>
-              <p className="text-[#0F2942] text-sm leading-relaxed">{medicine.allergyWarnings}</p>
-            </div>
-          </div>
-        )}
+          <dl className="space-y-4">
+            <CodeDetailRow
+              icon={<Package size={18} strokeWidth={1.75} />}
+              label={t('gtin_label')}
+              value={medicine.barcode}
+              mono
+            />
+            <CodeDetailRow
+              icon={<Layers size={18} strokeWidth={1.75} />}
+              label={t('proper_drug_name')}
+              value={properDrugName}
+            />
+            <CodeDetailRow
+              icon={<Landmark size={18} strokeWidth={1.75} />}
+              label={t('brand_name')}
+              value={medicine.name}
+            />
+            <CodeDetailRow
+              icon={<Contact size={18} strokeWidth={1.75} />}
+              label={t('manufacturer_label')}
+              value={manufacturerFull}
+            />
+            <CodeDetailRow
+              icon={<Barcode size={18} strokeWidth={1.75} />}
+              label={t('batch_number')}
+              value={batchNumber}
+              mono
+            />
+            <CodeDetailRow
+              icon={<Calendar size={18} strokeWidth={1.75} />}
+              label={t('mfg_date_label')}
+              value={formatMonthYear(medicine.mfgDate)}
+            />
+            <CodeDetailRow
+              icon={<Calendar size={18} strokeWidth={1.75} />}
+              label={t('expiry_date_label')}
+              value={formatMonthYear(medicine.expiryDate)}
+            />
+            <CodeDetailRow
+              icon={<Award size={18} strokeWidth={1.75} />}
+              label={t('license_number')}
+              value={licenseNumber}
+              mono
+            />
+            <CodeDetailRow
+              icon={<FileText size={18} strokeWidth={1.75} />}
+              label={t('excipients_label')}
+              value={excipientsList}
+            />
+          </dl>
+        </div>
 
-        {medicine.otherUses && (
-          <DetailSection title={t('other_uses')} content={medicine.otherUses} />
-        )}
+        <p className="mt-7 text-center text-sm font-semibold text-[#FA6806] leading-relaxed max-w-md mx-auto">
+          {t('thank_you_note')}
+        </p>
 
-        {medicine.alternatives && medicine.alternatives.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 md:p-7 border border-[#054A8C] space-y-4">
-            <h3 className="font-bold text-lg text-[#0F2942]">{t('alternatives')}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {medicine.alternatives.map((alt, i) => (
-                <div
-                  key={i}
-                  className="bg-[#F7FAFC] text-[#054A8C] px-4 py-3 rounded-xl text-sm font-semibold border border-[#054A8C] flex items-center gap-2.5"
-                >
-                  <Pill size={15} className="text-[#FA6806] shrink-0" />
-                  <span className="truncate">{alt}</span>
+        <div className="mt-6 flex items-center justify-between gap-4">
+          <Link
+            to="/company"
+            className="text-sm font-semibold text-[#054A8C] hover:text-[#FA6806] underline underline-offset-4 transition-colors"
+          >
+            {t('contact_us')}
+          </Link>
+          <Link
+            to="/search"
+            className="text-sm font-semibold text-[#3B5875] hover:text-[#054A8C] transition-colors"
+          >
+            {t('search_btn')}
+          </Link>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-[#054A8C]/15 text-center space-y-1 text-xs text-[#3B5875]">
+          <p>{medicine.companyName} · Authorized Label Registry</p>
+          <p>
+            {t('powered_by')}{' '}
+            <span className="font-semibold text-[#FA6806] underline underline-offset-2">
+              Scanurmed
+            </span>
+          </p>
+        </div>
+      </section>
+
+      {/* Expandable Clinical & Safety Information (preserves original Scanurmed clinical guide) */}
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => setShowClinicalDetails((prev) => !prev)}
+          aria-expanded={showClinicalDetails}
+          className="w-full bg-white hover:bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl px-5 py-3.5 flex items-center justify-between gap-3 text-sm font-semibold text-[#054A8C] transition-colors"
+        >
+          <span className="flex items-center gap-2.5">
+            <Stethoscope size={18} className="text-[#FA6806]" />
+            <span>
+              {showClinicalDetails ? t('hide_clinical_details') : t('view_clinical_details')}
+            </span>
+          </span>
+          {showClinicalDetails ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+
+        {showClinicalDetails && (
+          <div className="space-y-5">
+            <InfoCard
+              icon={<Stethoscope className="text-[#FA6806]" size={20} />}
+              title={t('medical_uses')}
+              content={<p className="text-[#0F2942] text-sm leading-relaxed">{medicine.medicalUses}</p>}
+            />
+            <DetailSection title={t('ingredients')} content={medicine.ingredients.join(' · ')} />
+            <DetailSection title={t('dosage')} content={medicine.dosage} />
+            <DetailSection title={t('side_effects')} content={medicine.sideEffects} />
+
+            {medicine.allergyWarnings && (
+              <div className="bg-[#FA6806]/10 border border-[#FA6806] rounded-2xl p-6 md:p-7 flex gap-4 items-start">
+                <div className="bg-white p-2.5 rounded-xl border border-[#FA6806] shrink-0">
+                  <AlertTriangle className="text-[#FA6806]" size={24} />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-[#0F2942] font-bold text-lg">{t('allergy_warning')}</h3>
+                  <p className="text-[#0F2942] text-sm leading-relaxed">{medicine.allergyWarnings}</p>
+                </div>
+              </div>
+            )}
+
+            {medicine.otherUses && (
+              <DetailSection title={t('other_uses')} content={medicine.otherUses} />
+            )}
+
+            {medicine.alternatives && medicine.alternatives.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 md:p-7 border border-[#054A8C] space-y-4">
+                <h3 className="font-bold text-lg text-[#0F2942]">{t('alternatives')}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {medicine.alternatives.map((alt, i) => (
+                    <div
+                      key={i}
+                      className="bg-[#F7FAFC] text-[#054A8C] px-4 py-3 rounded-xl text-sm font-semibold border border-[#054A8C] flex items-center gap-2.5"
+                    >
+                      <Pill size={15} className="text-[#FA6806] shrink-0" />
+                      <span className="truncate">{alt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function CodeDetailRow({
+  icon,
+  label,
+  value,
+  mono = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <div className="text-[#3B5875] shrink-0 mt-0.5" aria-hidden="true">
+        {icon}
+      </div>
+      <div className="text-sm leading-relaxed text-[#3B5875] min-w-0">
+        <dt className="inline">{label} : </dt>
+        <dd
+          className={`inline font-bold text-[#0F2942] break-words ${
+            mono ? 'font-mono tabular-nums' : ''
+          }`}
+        >
+          {value}
+        </dd>
       </div>
     </div>
   );

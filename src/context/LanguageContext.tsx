@@ -91,6 +91,40 @@ export const translations: Translations = {
   allow_camera_access: { en: 'Allow camera permission in your browser', hi: 'कृपया ब्राउज़र में कैमरा अनुमति दें' },
   scan_success: { en: 'Authorized Label Verified', hi: 'अधिकृत लेबल सत्यापित' },
   upload_qr: { en: 'Upload QR Label Image', hi: 'क्यूआर लेबल छवि अपलोड करें' },
+  verified_product: { en: 'Verified Product', hi: 'सत्यापित उत्पाद' },
+  code_details: { en: 'Code Details', hi: 'कोड विवरण' },
+  gtin_label: {
+    en: 'Unique Product Identification Code (GTIN No.)',
+    hi: 'विशिष्ट उत्पाद पहचान कोड (GTIN सं.)',
+  },
+  proper_drug_name: { en: 'Proper Name Of The Drug', hi: 'दवा का सही नाम' },
+  brand_name: { en: 'Brand Name', hi: 'ब्रांड नाम' },
+  manufacturer_label: {
+    en: 'Name And Address Of The Manufacturer',
+    hi: 'निर्माता का नाम और पता',
+  },
+  batch_number: { en: 'Batch Number', hi: 'बैच संख्या' },
+  mfg_date_label: { en: 'Date Of Manufacturing', hi: 'निर्माण की तिथि' },
+  expiry_date_label: { en: 'Date Of Expiry', hi: 'समाप्ति की तिथि' },
+  license_number: { en: 'Manufacturing Licence Number', hi: 'निर्माण लाइसेंस संख्या' },
+  excipients_label: {
+    en: 'Qualitative Details of Excipients',
+    hi: 'सहायक सामग्री का गुणात्मक विवरण',
+  },
+  thank_you_note: {
+    en: 'Thank you for visiting us ! We appreciate the opportunity to serve you.',
+    hi: 'हमारी सेवा का उपयोग करने के लिए धन्यवाद! हमें आपकी सेवा करने का अवसर मिला, इसकी हम सराहना करते हैं।',
+  },
+  view_clinical_details: {
+    en: 'View Clinical, Dosage & Safety Details',
+    hi: 'क्लिनिकल, खुराक और सुरक्षा विवरण देखें',
+  },
+  hide_clinical_details: {
+    en: 'Hide Clinical & Safety Details',
+    hi: 'क्लिनिकल और सुरक्षा विवरण छिपाएं',
+  },
+  contact_us: { en: 'Contact Us', hi: 'संपर्क करें' },
+  powered_by: { en: 'Powered by', hi: 'द्वारा संचालित' },
 };
 
 interface LanguageContextType {
