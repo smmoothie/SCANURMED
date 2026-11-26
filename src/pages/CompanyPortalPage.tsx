@@ -428,10 +428,53 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
         </div>
 
         {loginError && (
-          <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#FA6806]/10 border border-[#FA6806] text-xs text-[#0F2942]">
-            <AlertCircle size={16} className="text-[#FA6806] shrink-0 mt-0.5" />
-            <span role="alert">{loginError}</span>
-          </div>
+          loginError.isDomainError ? (
+            <div className="p-4 rounded-xl bg-orange-50 border border-[#FA6806] space-y-3 text-xs text-[#0F2942]" role="alert">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle size={18} className="text-[#FA6806] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-[#0F2942] text-sm">
+                    Firebase Error: auth/unauthorized-domain
+                  </div>
+                  <p className="text-[#3B5875] leading-relaxed">
+                    The current host <code className="px-1.5 py-0.5 bg-white border border-[#054A8C]/30 rounded font-bold font-mono text-[#054A8C]">{loginError.domain}</code> is not listed in your Firebase project&apos;s <strong>Authorized domains</strong>.
+                  </p>
+                  <p className="text-xs text-[#3B5875]">
+                    <strong>To fix in Firebase Console:</strong> Go to <strong>Authentication &gt; Settings &gt; Authorized domains</strong> and add <code className="font-mono text-[#054A8C] font-semibold">{loginError.domain}</code>.
+                  </p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#FA6806]/30 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-[#3B5875]">
+                  Or bypass domain authorization and enter now with the authorized passcode:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePasscodeSignIn(COMPANY_PORTAL_PASSCODE)}
+                  className="bg-[#FA6806] text-white py-2 px-3.5 rounded-lg font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center gap-1.5 text-xs shadow-sm"
+                >
+                  <KeyRound size={14} />
+                  <span>Sign In as {selectedMember.name} (Passcode: 4679)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#FA6806]/10 border border-[#FA6806] text-xs text-[#0F2942]" role="alert">
+              <AlertCircle size={16} className="text-[#FA6806] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span>{loginError.message}</span>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handlePasscodeSignIn(COMPANY_PORTAL_PASSCODE)}
+                    className="text-xs font-semibold text-[#054A8C] underline hover:text-[#FA6806]"
+                  >
+                    Or sign in directly using Member Passcode (4679)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
         )}
 
         {useEmailPassMode ? (
@@ -473,21 +516,56 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
                 }}
                 className="px-4 py-3 rounded-xl border border-[#054A8C] bg-white text-[#054A8C] text-xs font-semibold hover:bg-[#F7FAFC]"
               >
-                Use Google Verification Instead
+                Use Passcode / Google Instead
               </button>
             </div>
           </form>
         ) : (
-          <div className="space-y-3 pt-1">
-            <button
-              type="button"
-              disabled={signingIn}
-              onClick={() => handleGoogleSignIn(selectedMember.email)}
-              className="w-full bg-[#FA6806] text-white border border-[#054A8C] py-3.5 px-6 rounded-xl font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {signingIn ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-              <span>Continue as {selectedMember.name}</span>
-            </button>
+          <div className="space-y-4 pt-1 border-t border-[#054A8C]/20">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#054A8C] flex items-center justify-between">
+                <span>Company Portal Passcode</span>
+                <span className="text-[11px] font-normal text-[#3B5875]">Authorized Passcode: 4679</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={memberPasscodeInput}
+                  onChange={(e) => setMemberPasscodeInput(e.target.value)}
+                  placeholder="Enter passcode (4679)"
+                  className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl text-sm font-semibold text-[#0F2942] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMemberPasscodeInput(COMPANY_PORTAL_PASSCODE)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 bg-[#7BBCE5]/20 text-[#054A8C] hover:bg-[#7BBCE5]/40 rounded font-semibold"
+                  title="Autofill authorized passcode"
+                >
+                  Use 4679
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <button
+                type="button"
+                disabled={signingIn}
+                onClick={() => handlePasscodeSignIn()}
+                className="w-full bg-[#FA6806] text-white border border-[#054A8C] py-3.5 px-4 rounded-xl font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-sm"
+              >
+                {signingIn ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+                <span>Continue as {selectedMember.name}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={signingIn}
+                onClick={() => handleGoogleSignIn(selectedMember.email)}
+                className="w-full bg-white text-[#054A8C] border border-[#054A8C] py-3.5 px-4 rounded-xl font-semibold hover:bg-[#7BBCE5]/15 transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <span>Verify with Google OAuth</span>
+              </button>
+            </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#054A8C]/20">
               <button
