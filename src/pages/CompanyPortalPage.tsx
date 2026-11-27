@@ -91,6 +91,10 @@ function getSessionUnlockKey(uid: string) {
 
 type PortalUser = AppUser | User;
 
+type LoginError =
+  | { kind: 'message'; message: string }
+  | { kind: 'domain'; domain: string };
+
 function getAuthErrorCode(error: unknown): string | undefined {
   if (
     typeof error === 'object' &&
@@ -117,12 +121,12 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
 
   // Login screen state when !user
   const [selectedMemberEmail, setSelectedMemberEmail] = useState<string>(
-    APPROVED_COMPANY_MEMBERS[0].email
+    APPROVED_COMPANY_MEMBERS.find((member) => member.name === 'Avishek Raul')?.email ||
+      APPROVED_COMPANY_MEMBERS[0].email
   );
-  const [memberPasscodeInput, setMemberPasscodeInput] = useState(COMPANY_PORTAL_PASSCODE);
   const [useEmailPassMode, setUseEmailPassMode] = useState(false);
   const [emailPassInput, setEmailPassInput] = useState('');
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<LoginError | null>(null);
   const [signingIn, setSigningIn] = useState(false);
 
   const { t } = useLanguage();
@@ -282,27 +286,35 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
           : 'localhost';
 
       if (code === 'auth/unauthorized-domain') {
-        setLoginError(
-          `Google sign-in is blocked for "${currentDomain}". In Firebase Console, open Authentication > Settings > Authorized domains and add this exact domain, then try again.`
-        );
+        setLoginError({ kind: 'domain', domain: currentDomain });
       } else if (code === 'auth/operation-not-allowed') {
-        setLoginError(
-          'Google sign-in is disabled for this Firebase project. Enable the Google provider under Firebase Console > Authentication > Sign-in method.'
-        );
+        setLoginError({
+          kind: 'message',
+          message:
+            'Google sign-in is disabled for this Firebase project. Enable the Google provider under Firebase Console > Authentication > Sign-in method.',
+        });
       } else {
-        setLoginError(error instanceof Error ? error.message : 'Google sign-in failed.');
+        setLoginError({
+          kind: 'message',
+          message: error instanceof Error ? error.message : 'Google sign-in failed.',
+        });
       }
     } finally {
       setSigningIn(false);
     }
   };
 
+  const handleContinueAsMember = async () => {
+    await handleGoogleSignIn(selectedMemberEmail);
+  };
+
   const handlePasscodeSignIn = async (passcodeToVerify?: string) => {
-    const code = (passcodeToVerify ?? memberPasscodeInput).trim();
+    const code = (passcodeToVerify ?? COMPANY_PORTAL_PASSCODE).trim();
     if (code !== COMPANY_PORTAL_PASSCODE) {
-      setLoginError(
-        `Incorrect passcode. Enter the authorized company passcode: ${COMPANY_PORTAL_PASSCODE}`
-      );
+      setLoginError({
+        kind: 'message',
+        message: `Incorrect passcode. Enter the authorized company passcode: ${COMPANY_PORTAL_PASSCODE}`,
+      });
       return;
     }
     setLoginError(null);
@@ -336,19 +348,28 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
       if (code === 'auth/operation-not-allowed') {
-        setLoginError(
-          'Email/Password sign-in is disabled for this Firebase project. Enable the Email/Password provider under Firebase Console > Authentication > Sign-in method.'
-        );
+        setLoginError({
+          kind: 'message',
+          message:
+            'Email/Password sign-in is disabled for this Firebase project. Enable the Email/Password provider under Firebase Console > Authentication > Sign-in method.',
+        });
       } else if (
         code === 'auth/invalid-credential' ||
         code === 'auth/user-not-found' ||
         code === 'auth/wrong-password'
       ) {
-        setLoginError('The email or password is incorrect for this authorized account.');
+        setLoginError({
+          kind: 'message',
+          message: 'The email or password is incorrect for this authorized account.',
+        });
       } else {
-        setLoginError(
-          error instanceof Error ? error.message : 'Firebase email/password sign-in failed.'
-        );
+        setLoginError({
+          kind: 'message',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Firebase email/password sign-in failed.',
+        });
       }
     } finally {
       setSigningIn(false);
@@ -382,13 +403,13 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
       APPROVED_COMPANY_MEMBERS[0];
 
     return (
-      <div className="max-w-2xl mx-auto bg-white border border-[#054A8C] rounded-2xl p-6 sm:p-8 md:p-10 space-y-6">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#7BBCE5]/25 border border-[#054A8C] flex items-center justify-center text-[#054A8C] shrink-0">
+      <div className="max-w-2xl mx-auto bg-white border border-[#1461A0] rounded-2xl p-6 sm:p-8 md:p-10 space-y-6">
+        <div className="flex items-start gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-[#EAF3FA] border border-[#1461A0] flex items-center justify-center text-[#1461A0] shrink-0">
             <Building2 size={24} />
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold text-[#0F2942]">{t('login')}</h1>
+            <h1 className="text-3xl font-bold text-[#0F2942] leading-tight">{t('login')}</h1>
             <p className="text-[#3B5875] text-sm leading-relaxed">
               Select an authorized company member to verify your account and enter your name and password. Other companies can apply for registration.
             </p>
@@ -410,7 +431,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
                     setSelectedMemberEmail(member.email);
                     setLoginError(null);
                   }}
-                  className={`text-left p-4 rounded-xl border transition-colors space-y-1 ${
+                  className={`text-left min-h-[112px] p-4 rounded-xl border transition-colors space-y-1 ${
                     selected
                       ? 'bg-[#7BBCE5]/25 border-[#FA6806] ring-2 ring-[#FA6806]/30'
                       : 'bg-[#F7FAFC] border-[#054A8C]/40 hover:border-[#054A8C]'
@@ -428,35 +449,13 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
         </div>
 
         {loginError && (
-          loginError.isDomainError ? (
-            <div className="p-4 rounded-xl bg-orange-50 border border-[#FA6806] space-y-3 text-xs text-[#0F2942]" role="alert">
-              <div className="flex items-start gap-2.5">
-                <AlertCircle size={18} className="text-[#FA6806] shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div className="font-bold text-[#0F2942] text-sm">
-                    Firebase Error: auth/unauthorized-domain
-                  </div>
-                  <p className="text-[#3B5875] leading-relaxed">
-                    The current host <code className="px-1.5 py-0.5 bg-white border border-[#054A8C]/30 rounded font-bold font-mono text-[#054A8C]">{loginError.domain}</code> is not listed in your Firebase project&apos;s <strong>Authorized domains</strong>.
-                  </p>
-                  <p className="text-xs text-[#3B5875]">
-                    <strong>To fix in Firebase Console:</strong> Go to <strong>Authentication &gt; Settings &gt; Authorized domains</strong> and add <code className="font-mono text-[#054A8C] font-semibold">{loginError.domain}</code>.
-                  </p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-[#FA6806]/30 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] text-[#3B5875]">
-                  Or bypass domain authorization and enter now with the authorized passcode:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handlePasscodeSignIn(COMPANY_PORTAL_PASSCODE)}
-                  className="bg-[#FA6806] text-white py-2 px-3.5 rounded-lg font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center gap-1.5 text-xs shadow-sm"
-                >
-                  <KeyRound size={14} />
-                  <span>Sign In as {selectedMember.name} (Passcode: 4679)</span>
-                </button>
-              </div>
+          loginError.kind === 'domain' ? (
+            <div
+              className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl bg-[#FFF5F2] border border-[#FA6806] text-xs text-[#0F2942]"
+              role="alert"
+            >
+              <AlertCircle size={18} className="text-[#FA6806] shrink-0" />
+              <span className="font-medium">Firebase: Error (auth/unauthorized-domain).</span>
             </div>
           ) : (
             <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#FA6806]/10 border border-[#FA6806] text-xs text-[#0F2942]" role="alert">
@@ -466,7 +465,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
                 <div className="pt-1">
                   <button
                     type="button"
-                    onClick={() => handlePasscodeSignIn(COMPANY_PORTAL_PASSCODE)}
+                    onClick={() => handlePasscodeSignIn()}
                     className="text-xs font-semibold text-[#054A8C] underline hover:text-[#FA6806]"
                   >
                     Or sign in directly using Member Passcode (4679)
@@ -503,7 +502,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
               <button
                 type="submit"
                 disabled={signingIn}
-                className="flex-1 bg-[#FA6806] text-white border border-[#054A8C] py-3 px-5 rounded-xl font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-[#FA6806] text-white border border-[#054A8C] py-3 px-5 rounded-xl font-semibold hover:bg-[#E05A00] inline-flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {signingIn ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
                 <span>Sign In as {selectedMember.name}</span>
@@ -516,63 +515,28 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
                 }}
                 className="px-4 py-3 rounded-xl border border-[#054A8C] bg-white text-[#054A8C] text-xs font-semibold hover:bg-[#F7FAFC]"
               >
-                Use Passcode / Google Instead
+                Use Google Verification Instead
               </button>
             </div>
           </form>
         ) : (
-          <div className="space-y-4 pt-1 border-t border-[#054A8C]/20">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#054A8C] flex items-center justify-between">
-                <span>Company Portal Passcode</span>
-                <span className="text-[11px] font-normal text-[#3B5875]">Authorized Passcode: 4679</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={memberPasscodeInput}
-                  onChange={(e) => setMemberPasscodeInput(e.target.value)}
-                  placeholder="Enter passcode (4679)"
-                  className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl text-sm font-semibold text-[#0F2942] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMemberPasscodeInput(COMPANY_PORTAL_PASSCODE)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] px-2 py-1 bg-[#7BBCE5]/20 text-[#054A8C] hover:bg-[#7BBCE5]/40 rounded font-semibold"
-                  title="Autofill authorized passcode"
-                >
-                  Use 4679
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <button
-                type="button"
-                disabled={signingIn}
-                onClick={() => handlePasscodeSignIn()}
-                className="w-full bg-[#FA6806] text-white border border-[#054A8C] py-3.5 px-4 rounded-xl font-semibold hover:bg-[#E05A00] transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-sm"
-              >
-                {signingIn ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-                <span>Continue as {selectedMember.name}</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={signingIn}
-                onClick={() => handleGoogleSignIn(selectedMember.email)}
-                className="w-full bg-white text-[#054A8C] border border-[#054A8C] py-3.5 px-4 rounded-xl font-semibold hover:bg-[#7BBCE5]/15 transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <span>Verify with Google OAuth</span>
-              </button>
-            </div>
+          <div className="space-y-3 pt-1">
+            <button
+              type="button"
+              disabled={signingIn}
+              onClick={handleContinueAsMember}
+              className="w-full bg-[#FA6806] text-white border border-[#054A8C] py-3.5 px-6 rounded-xl font-semibold hover:bg-[#E05A00] inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {signingIn ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+              <span>Continue as {selectedMember.name}</span>
+            </button>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#054A8C]/20">
               <button
                 type="button"
                 onClick={() => handleGoogleSignIn()}
                 disabled={signingIn}
-                className="text-xs font-semibold text-[#054A8C] hover:text-[#FA6806] transition-colors"
+                className="text-xs font-semibold text-[#054A8C] hover:text-[#FA6806]"
               >
                 Other company? Sign in to submit registration
               </button>
@@ -582,7 +546,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
                   setUseEmailPassMode(true);
                   setLoginError(null);
                 }}
-                className="text-xs font-semibold text-[#3B5875] hover:text-[#054A8C] transition-colors"
+                className="text-xs font-semibold text-[#3B5875] hover:text-[#054A8C]"
               >
                 Sign in with Firebase Email/Password
               </button>
