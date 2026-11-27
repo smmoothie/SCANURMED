@@ -17,7 +17,19 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase';
 import { AppUser } from './types';
 import { getLocalAuthUser, subscribeToAuthChanges, clearLocalAuthUser } from './utils/authSession';
-import { Scan, Search, LogIn, LogOut, Info, Languages, Building2 } from 'lucide-react';
+import {
+  Scan,
+  Search,
+  CircleHelp,
+  Phone,
+  LogIn,
+  LogOut,
+  Info,
+  Languages,
+  Building2,
+  Moon,
+  Sun,
+} from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -31,12 +43,33 @@ import CompanyPortalPage from './pages/CompanyPortalPage';
 import SearchPage from './pages/SearchPage';
 
 const LOGO_SRC = '/assets/aistudio/image_79859417.png';
+const THEME_STORAGE_KEY = 'scanurmed_theme';
+type Theme = 'light' | 'dark';
+
+function getSavedTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (error) {
+    console.warn('Unable to read saved theme:', error);
+    return 'light';
+  }
+}
 
 function AppContent() {
   const [user, setUser] = useState<AppUser | User | null>(() => getLocalAuthUser());
+  const [theme, setTheme] = useState<Theme>(getSavedTheme);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showIntroRoll, setShowIntroRoll] = useState(true);
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      console.warn('Unable to save theme preference:', error);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -88,7 +121,11 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7FAFC] text-[#0F2942] font-sans selection:bg-[#7BBCE5]/30 selection:text-[#054A8C]">
-      <Navbar user={user} />
+      <Navbar
+        user={user}
+        theme={theme}
+        onToggleTheme={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
+      />
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <AnimatePresence mode="wait">
           <Routes>
@@ -119,7 +156,15 @@ export default function App() {
   );
 }
 
-function Navbar({ user }: { user: AppUser | User | null }) {
+function Navbar({
+  user,
+  theme,
+  onToggleTheme,
+}: {
+  user: AppUser | User | null;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
@@ -146,12 +191,30 @@ function Navbar({ user }: { user: AppUser | User | null }) {
     setLanguage(language === 'en' ? 'hi' : 'en');
   };
 
+  const handleWhyUsClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (location.pathname === '/' && location.hash === '#why-scanurmed') {
+      event.preventDefault();
+      document
+        .getElementById('why-scanurmed')
+        ?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+
+  const handleReachOutClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (location.pathname === '/' && location.hash === '#reachout') {
+      event.preventDefault();
+      document
+        .getElementById('reachout')
+        ?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+
   return (
     <header className="bg-white border-b border-[#054A8C] sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 sm:gap-8">
         <Link
           to="/"
-          className="text-2xl font-bold tracking-tight text-[#054A8C] whitespace-nowrap shrink-0 flex items-center gap-3 group"
+          className="text-lg sm:text-2xl font-bold tracking-tight text-[#054A8C] whitespace-nowrap shrink-0 flex items-center gap-2 sm:gap-3 group"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           <motion.img
@@ -162,12 +225,12 @@ function Navbar({ user }: { user: AppUser | User | null }) {
             animate={shouldReduceMotion ? undefined : { rotate: 0 }}
             whileHover={shouldReduceMotion ? undefined : { rotate: 360 }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="w-14 h-14 object-contain shrink-0"
+            className="w-8 h-8 sm:w-14 sm:h-14 object-contain shrink-0"
           />
           <span>Scanurmed</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-8">
           <NavLink
             to="/search"
             icon={<Search size={16} />}
@@ -180,16 +243,43 @@ function Navbar({ user }: { user: AppUser | User | null }) {
             label={t('scanner')}
             active={location.pathname === '/scan'}
           />
+          <NavLink
+            to="/#why-scanurmed"
+            icon={<CircleHelp size={16} />}
+            label="Why Us?"
+            active={location.pathname === '/' && location.hash === '#why-scanurmed'}
+            onClick={handleWhyUsClick}
+          />
+          <NavLink
+            to="/#reachout"
+            icon={<Phone size={16} />}
+            label="Reach Out"
+            active={location.pathname === '/' && location.hash === '#reachout'}
+            onClick={handleReachOutClick}
+          />
         </nav>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={toggleLanguage}
-            className="px-3 py-2 rounded-lg border border-[#054A8C] bg-white hover:bg-[#7BBCE5]/20 text-[#054A8C] transition-colors text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            aria-label={language === 'en' ? 'Switch language to Hindi' : 'Switch language to English'}
+            title={language === 'en' ? 'Switch language to Hindi' : 'Switch language to English'}
+            className="px-2 sm:px-3 py-2 rounded-lg border border-[#054A8C] bg-white hover:bg-[#7BBCE5]/20 text-[#054A8C] transition-colors text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
             <Languages size={14} />
-            <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
+            <span className="hidden sm:inline">{language === 'en' ? 'हिन्दी' : 'English'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            aria-pressed={theme === 'dark'}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#054A8C]/40 bg-white text-[#054A8C] transition-colors hover:bg-[#7BBCE5]/20"
+          >
+            {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
           </button>
 
           {user ? (
@@ -216,7 +306,7 @@ function Navbar({ user }: { user: AppUser | User | null }) {
             <button
               type="button"
               onClick={handleLogin}
-              className="bg-[#FA6806] text-white border border-[#054A8C] px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
+              className="bg-[#FA6806] text-white border border-[#054A8C] px-2 sm:px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
             >
               <LogIn size={16} />
               <span className="hidden sm:inline">{t('login')}</span>
@@ -226,9 +316,25 @@ function Navbar({ user }: { user: AppUser | User | null }) {
       </div>
 
       {/* Compact mobile nav strip */}
-      <div className="md:hidden border-t border-[#054A8C]/20 bg-white px-4 py-2 flex items-center justify-around gap-2">
-        <NavLink to="/search" icon={<Search size={15} />} label={t('search')} active={location.pathname === '/search'} />
-        <NavLink to="/scan" icon={<Scan size={15} />} label={t('scanner')} active={location.pathname === '/scan'} />
+      <div className="lg:hidden border-t border-[#054A8C]/20 bg-white px-2 sm:px-4 py-2 flex items-center justify-around gap-1 sm:gap-2">
+        <NavLink compact to="/search" icon={<Search size={15} />} label={t('search')} active={location.pathname === '/search'} />
+        <NavLink compact to="/scan" icon={<Scan size={15} />} label={t('scanner')} active={location.pathname === '/scan'} />
+        <NavLink
+          compact
+          to="/#why-scanurmed"
+          icon={<CircleHelp size={15} />}
+          label="Why Us?"
+          active={location.pathname === '/' && location.hash === '#why-scanurmed'}
+          onClick={handleWhyUsClick}
+        />
+        <NavLink
+          compact
+          to="/#reachout"
+          icon={<Phone size={15} />}
+          label="Reach Out"
+          active={location.pathname === '/' && location.hash === '#reachout'}
+          onClick={handleReachOutClick}
+        />
       </div>
     </header>
   );
@@ -239,16 +345,21 @@ function NavLink({
   icon,
   label,
   active,
+  onClick,
+  compact = false,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  compact?: boolean;
 }) {
   return (
     <Link
       to={to}
-      className={`flex items-center gap-1.5 text-sm font-semibold transition-colors relative py-1 whitespace-nowrap shrink-0 ${
+      onClick={onClick}
+      className={`flex items-center ${compact ? 'gap-1 text-xs sm:gap-1.5 sm:text-sm' : 'gap-1.5 text-sm'} font-semibold transition-colors relative py-1 whitespace-nowrap shrink-0 ${
         active
           ? 'text-[#FA6806] border-b-2 border-[#FA6806]'
           : 'text-[#054A8C] hover:text-[#FA6806]'
@@ -265,7 +376,7 @@ function Footer() {
   return (
     <footer className="bg-white border-t border-[#054A8C] py-10 mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 gap-8 items-start md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <div
               className="flex items-center gap-3 text-[#054A8C] font-bold text-xl"
@@ -283,12 +394,60 @@ function Footer() {
               {t('hero_sub')}
             </p>
           </div>
-          <div className="bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl p-5 flex gap-3 items-start">
+
+          <nav aria-label="Footer navigation" className="space-y-3">
+            <h2 className="font-bold text-[#0F2942]">Quick Links</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <Link to="/search" className="text-[#054A8C] transition-colors hover:text-[#FA6806]">
+                {t('search')}
+              </Link>
+              <Link to="/scan" className="text-[#054A8C] transition-colors hover:text-[#FA6806]">
+                {t('scanner')}
+              </Link>
+              <Link
+                to="/#why-scanurmed"
+                className="text-[#054A8C] transition-colors hover:text-[#FA6806]"
+              >
+                Why Us?
+              </Link>
+              <Link
+                to="/#reachout"
+                className="text-[#054A8C] transition-colors hover:text-[#FA6806]"
+              >
+                Reach Out
+              </Link>
+            </div>
+          </nav>
+
+          <div className="space-y-3">
+            <h2 className="font-bold text-[#0F2942]">Call Us</h2>
+            <div className="space-y-2">
+              <a
+                href="tel:+917488152499"
+                className="flex items-center gap-2 text-sm text-[#054A8C] transition-colors hover:text-[#16734B]"
+              >
+                <Phone size={15} />
+                +91 7488152499
+              </a>
+              <a
+                href="tel:+918093387542"
+                className="flex items-center gap-2 text-sm text-[#054A8C] transition-colors hover:text-[#16734B]"
+              >
+                <Phone size={15} />
+                +91 8093387542
+              </a>
+            </div>
+          </div>
+
+          <div className="bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl p-5 flex gap-3 items-start md:col-span-2 lg:col-span-3">
             <Info className="text-[#054A8C] shrink-0 mt-0.5" size={18} />
             <p className="text-[#0F2942] text-xs leading-relaxed">
               <strong>Educational Disclaimer:</strong> This application provides reference information exclusively for the 20 authorized medicine QR labels. Always consult a qualified healthcare professional before taking any medication.
             </p>
           </div>
+        </div>
+        <div className="mt-8 border-t border-[#054A8C]/20 pt-5 text-xs text-[#3B5875]">
+          &copy; {new Date().getFullYear()} SCANURMED. All rights reserved.
         </div>
       </div>
     </footer>
