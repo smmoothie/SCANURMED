@@ -33,6 +33,11 @@ export interface Medicine {
   companyId: string;
   companyName: string;
   name: string;
+  properName?: string;
+  manufacturerAddress?: string;
+  batchNumber?: string;
+  licenseNumber?: string;
+  excipients?: string[];
   ingredients: string[];
   dosage: string;
   sideEffects: string;
