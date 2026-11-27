@@ -242,7 +242,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
             </div>
             <Link
               to="/scan"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-5 py-3 text-sm font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#E05A00] hover:shadow-lg"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-5 py-3 text-sm font-bold text-white hover:bg-[#E05A00]"
             >
               <Scan size={17} />
               Scan a medicine
@@ -304,7 +304,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
           </div>
           <Link
             to="/search"
-            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white px-5 py-3 text-sm font-bold text-[#054A8C] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#EAF3FA] hover:shadow-lg sm:self-auto"
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white px-5 py-3 text-sm font-bold text-[#054A8C] hover:bg-[#EAF3FA] sm:self-auto"
           >
             Explore SCANURMED
             <ArrowUpRight size={17} />
