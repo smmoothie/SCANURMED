@@ -24,7 +24,7 @@ import {
 
 export default function CustomerDashboardPage() {
   const navigate = useNavigate();
-  const currentUser = auth.currentUser;
+  const currentUser = auth?.currentUser;
 
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [scans, setScans] = useState<CustomerScan[]>([]);
@@ -83,6 +83,7 @@ export default function CustomerDashboardPage() {
   async function handleLogout() {
     setLoggingOut(true);
     try {
+      if (!auth) throw new Error('Firebase Authentication is not configured.');
       await signOut(auth);
       navigate('/', { replace: true });
     } catch (error) {

@@ -23,6 +23,12 @@ export default function SearchPage() {
         return;
       }
 
+      if (!db) {
+        setCatalog(AUTHORIZED_MEDICINES);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const q = query(collection(db, 'medicines'), limit(50));

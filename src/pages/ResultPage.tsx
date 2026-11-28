@@ -137,7 +137,7 @@ export default function ResultPage() {
       setUsedOfflineFallback(!navigator.onLine);
       setLoading(false);
 
-      const customer = auth.currentUser;
+      const customer = auth?.currentUser;
       const saveScanForCustomer = async (scanMedicine: Medicine) => {
         if (
           !scannedAt ||
@@ -159,6 +159,8 @@ export default function ResultPage() {
           }
         }
       };
+
+      if (!db) return;
 
       if (!navigator.onLine) {
         void saveScanForCustomer(cachedOrBundled);

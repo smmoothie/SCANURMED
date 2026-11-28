@@ -8,9 +8,10 @@ import {
   PhoneAuthProvider,
   linkWithCredential,
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { getFirebaseAuth, isFirebaseConfigured } from '../firebase';
 import { saveCustomerProfile } from '../utils/customerAuth';
 import { UserPlus, Phone, Mail, Lock, User, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
+import { FirebaseUnavailableNotice } from '../components/FirebaseUnavailableNotice';
 
 type Step = 'details' | 'otp';
 
@@ -67,11 +68,12 @@ export default function CustomerSignUpPage() {
   >(null);
 
   async function sendOtp(phoneNumber: string) {
+    const firebaseAuth = getFirebaseAuth();
     recaptchaVerifier.current?.clear();
-    recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    recaptchaVerifier.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
       size: 'invisible',
     });
-    const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier.current);
+    const result = await signInWithPhoneNumber(firebaseAuth, phoneNumber, recaptchaVerifier.current);
     setConfirmationResult(result);
   }
 
@@ -99,9 +101,10 @@ export default function CustomerSignUpPage() {
 
     setLoading(true);
     try {
+      const firebaseAuth = getFirebaseAuth();
       if (!accountReady) {
         const credential = await createUserWithEmailAndPassword(
-          auth,
+          firebaseAuth,
           email.trim(),
           password,
         );
@@ -111,14 +114,14 @@ export default function CustomerSignUpPage() {
         setVerifiedPhoneNumber(normalizedPhone);
         await updateProfile(credential.user, { displayName: fullName.trim() });
       } else {
-        const currentUser = auth.currentUser;
+        const currentUser = firebaseAuth.currentUser;
         if (!currentUser || currentUser.email?.toLowerCase() !== email.trim().toLowerCase()) {
           throw new Error('Your account session expired. Please sign in and restart registration.');
         }
         await updateProfile(currentUser, { displayName: fullName.trim() });
       }
 
-      const currentUser = auth.currentUser;
+      const currentUser = firebaseAuth.currentUser;
       if (!currentUser) {
         throw new Error('Unable to access the new account. Please try signing in again.');
       }
@@ -170,7 +173,7 @@ export default function CustomerSignUpPage() {
 
     setLoading(true);
     try {
-      const currentUser = auth.currentUser;
+      const currentUser = getFirebaseAuth().currentUser;
       if (!currentUser) {
         throw new Error('Your account session expired. Please sign in and restart registration.');
       }
@@ -220,6 +223,10 @@ export default function CustomerSignUpPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#054A8C] shadow-sm p-8 space-y-6">
+          {!isFirebaseConfigured && (
+            <FirebaseUnavailableNotice feature="Customer registration and phone verification" />
+          )}
+
           {error && (
             <div role="alert" className="bg-[#FA6806]/10 border border-[#FA6806] text-[#FA6806] rounded-xl px-4 py-3 text-sm font-medium">
               {error}
@@ -233,7 +240,7 @@ export default function CustomerSignUpPage() {
               <Field label="Password" icon={<Lock size={16} />} type="password" placeholder="At least 8 characters" value={password} onChange={setPassword} autoComplete="new-password" required minLength={8} disabled={loading} />
               <Field label="Phone Number" icon={<Phone size={16} />} type="tel" placeholder="+91 9876543210" value={phone} onChange={setPhone} autoComplete="tel" required disabled={loading} />
 
-              <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 bg-[#FA6806] text-white font-semibold py-3 px-6 rounded-xl border border-[#054A8C] disabled:opacity-60">
+              <button type="submit" disabled={loading || !isFirebaseConfigured} className="w-full flex items-center justify-center gap-2 bg-[#FA6806] text-white font-semibold py-3 px-6 rounded-xl border border-[#054A8C] disabled:opacity-60">
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <>Continue <ArrowRight size={16} /></>}
               </button>
             </form>
