@@ -2,7 +2,7 @@
   "entities": {
     "Company": {
       "title": "Company",
-      "description": "An approved pharmaceutical company registered on the platform.",
+      "description": "An approved pharmaceutical company linked to its Firebase Auth UID.",
       "type": "object",
       "properties": {
         "uid": {
@@ -10,6 +10,11 @@
           "maxLength": 128,
           "pattern": "^[a-zA-Z0-9_\\-]+$",
           "description": "Firebase Auth UID of the company account."
+        },
+        "applicationId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "ID of the approved company application; matches the company UID."
         },
         "name": {
           "type": "string",
@@ -21,35 +26,59 @@
           "maxLength": 254,
           "description": "Contact email for the company."
         },
+        "phone": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "licenseNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "licenseType": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "licenseDetails": {
+          "type": "string",
+          "maxLength": 1000
+        },
         "representativeName": {
           "type": "string",
           "maxLength": 150,
-          "description": "Authorized representative full name (e.g. Smriti Shekhar Nag, Abhishek Raul, Alankrita)."
+          "description": "Authorized representative full name."
         },
-        "passwordHash": {
+        "status": {
           "type": "string",
-          "maxLength": 128,
-          "pattern": "^[a-f0-9]{64}$",
-          "description": "Salted SHA-256 hash of the company portal password."
+          "enum": ["APPROVED", "REJECTED"]
         },
-        "passwordSalt": {
+        "approvedByUid": {
           "type": "string",
-          "maxLength": 64,
-          "pattern": "^[a-f0-9]+$",
-          "description": "Hex-encoded random salt used for passwordHash."
+          "maxLength": 128
         },
         "createdAt": {
           "type": "string",
           "format": "date-time",
           "maxLength": 64,
           "description": "Timestamp when the company registered."
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
         }
       },
-      "required": ["uid", "name", "email", "createdAt"]
+      "required": [
+        "uid", "applicationId", "name", "email", "phone", "address",
+        "licenseNumber", "licenseType", "licenseDetails", "representativeName",
+        "status", "createdAt", "approvedAt", "approvedByUid"
+      ]
     },
     "CompanyRegistrationRequest": {
       "title": "CompanyRegistrationRequest",
-      "description": "A registration application submitted by a non-allowlisted company awaiting review.",
+      "description": "A company application indexed by applicant Firebase Auth UID.",
       "type": "object",
       "properties": {
         "uid": {
@@ -73,6 +102,18 @@
           "maxLength": 100,
           "description": "Pharmaceutical manufacturing or distribution license ID."
         },
+        "licenseType": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "licenseDetails": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 500
+        },
         "contactPerson": {
           "type": "string",
           "maxLength": 150,
@@ -90,23 +131,30 @@
         },
         "status": {
           "type": "string",
-          "enum": ["pending", "approved", "rejected"],
+          "enum": ["PENDING", "APPROVED", "REJECTED"],
           "description": "Review status of the registration request."
         },
-        "createdAt": {
+        "submittedAt": {
           "type": "string",
           "format": "date-time",
           "maxLength": 64,
           "description": "Submission timestamp."
         },
-        "updatedAt": {
+        "reviewedAt": {
           "type": "string",
           "format": "date-time",
-          "maxLength": 64,
-          "description": "Last review update timestamp."
+          "maxLength": 64
+        },
+        "reviewedByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the administrator who made the decision."
         }
       },
-      "required": ["uid", "companyName", "email", "licenseNumber", "contactPerson", "phone", "status", "createdAt"]
+      "required": [
+        "uid", "companyName", "email", "phone", "address", "licenseNumber",
+        "licenseType", "licenseDetails", "contactPerson", "notes", "status", "submittedAt"
+      ]
     },
     "Medicine": {
       "title": "Medicine",
@@ -224,16 +272,74 @@
         }
       },
       "required": ["medicineId", "companyId", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Minimal Firebase-authenticated user profile without client-editable roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 254 },
+        "displayName": { "type": ["string", "null"], "maxLength": 150 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "CompanyMedicineRecord": {
+      "title": "CompanyMedicineRecord",
+      "description": "Persistent medicine batch submission owned by an approved company.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string", "maxLength": 128 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "manufacturerName": { "type": "string", "maxLength": 200 },
+        "licenseNumber": { "type": "string", "maxLength": 100 },
+        "licenseType": { "type": "string", "maxLength": 100 },
+        "licenseDetails": { "type": "string", "maxLength": 1000 },
+        "name": { "type": "string", "maxLength": 200 },
+        "activeComponent": { "type": "string", "maxLength": 500 },
+        "batchNumber": { "type": "string", "maxLength": 100 },
+        "manufacturingDate": { "type": "string", "format": "date" },
+        "expiryDate": { "type": "string", "format": "date" },
+        "imagePath": { "type": "string", "maxLength": 512 },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "companyId", "companyName", "manufacturerName", "licenseNumber", "licenseType",
+        "licenseDetails", "name", "activeComponent", "batchNumber", "manufacturingDate",
+        "expiryDate", "imagePath", "registeredAt"
+      ]
+    },
+    "MedicineRegistrationHistory": {
+      "title": "MedicineRegistrationHistory",
+      "description": "Immutable event history for registered company medicines.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string", "maxLength": 128 },
+        "medicineId": { "type": "string", "maxLength": 128 },
+        "medicineName": { "type": "string", "maxLength": 200 },
+        "eventType": { "type": "string", "enum": ["REGISTERED"] },
+        "performedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "companyId", "medicineId", "medicineName", "eventType", "performedByUid", "createdAt"
+      ]
     }
   },
   "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "Minimal user profile; administrator privileges are assigned via trusted Firebase custom claims."
+    },
     "/companies/{companyId}": {
       "schema": "Company",
       "description": "Collection of approved pharmaceutical companies."
     },
-    "/company_requests/{requestId}": {
+    "/companyApplications/{uid}": {
       "schema": "CompanyRegistrationRequest",
-      "description": "Registration requests submitted by other companies."
+      "description": "One company application per authenticated UID, with admin review metadata."
     },
     "/medicines/{medicineId}": {
       "schema": "Medicine",
@@ -242,6 +348,14 @@
     "/scans/{scanId}": {
       "schema": "ScanLog",
       "description": "Logs of all authorized medicine scans for analytics."
+    },
+    "/company_medicines/{medicineId}": {
+      "schema": "CompanyMedicineRecord",
+      "description": "Medicine batch registrations, each associated with its approved company UID."
+    },
+    "/medicineRegistrationHistory/{historyId}": {
+      "schema": "MedicineRegistrationHistory",
+      "description": "Immutable audit entries for medicine registrations."
     }
   }
 }

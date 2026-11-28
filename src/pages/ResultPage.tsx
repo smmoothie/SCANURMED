@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { db } from '../firebase';
+import { auth } from '../firebase';
 import {
   collection,
   query,
@@ -12,10 +13,13 @@ import {
   doc,
   increment,
 } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { Medicine } from '../types';
+import { AppUser } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { OperationType, handleFirestoreError } from '../utils/firestoreError';
+import { saveCustomerScan } from '../utils/customerAuth';
 import {
   getAuthorizedMedicineByCode,
   normalizeScannedCode,
@@ -63,15 +67,20 @@ function isOfflineFirestoreError(err: unknown): boolean {
   );
 }
 
-export default function ResultPage() {
+export default function ResultPage({ user }: { user?: AppUser | User | null }) {
   const { barcode } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const isOnline = useOnlineStatus();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [usedOfflineFallback, setUsedOfflineFallback] = useState(false);
+  const [scanSaveError, setScanSaveError] = useState<string | null>(null);
+  const savedScanEventRef = useRef<string | null>(null);
+  const scannedAt =
+    (location.state as { scannedAt?: string } | null)?.scannedAt || null;
 
   const normalizedCode = barcode ? normalizeScannedCode(decodeURIComponent(barcode)) : '';
 
@@ -103,7 +112,31 @@ export default function ResultPage() {
       setUsedOfflineFallback(!navigator.onLine);
       setLoading(false);
 
+      const customer = auth.currentUser;
+      const saveScanForCustomer = async (scanMedicine: Medicine) => {
+        if (
+          !scannedAt ||
+          !customer ||
+          savedScanEventRef.current === scannedAt
+        ) {
+          return;
+        }
+
+        savedScanEventRef.current = scannedAt;
+        try {
+          await saveCustomerScan(customer.uid, scanMedicine, scannedAt);
+          if (!cancelled) setScanSaveError(null);
+        } catch (error) {
+          savedScanEventRef.current = null;
+          console.error('Unable to save customer medicine scan:', error);
+          if (!cancelled) {
+            setScanSaveError('This scan could not be saved to your account. Check your connection and try again.');
+          }
+        }
+      };
+
       if (!navigator.onLine) {
+        void saveScanForCustomer(cachedOrBundled);
         return;
       }
 
@@ -123,6 +156,7 @@ export default function ResultPage() {
         } catch (err) {
           if (isOfflineFirestoreError(err)) {
             if (!cancelled) setUsedOfflineFallback(true);
+            void saveScanForCustomer(cachedOrBundled);
             return;
           }
           handleFirestoreError(err, OperationType.GET, docPath);
@@ -144,6 +178,7 @@ export default function ResultPage() {
           } catch (err) {
             if (isOfflineFirestoreError(err)) {
               if (!cancelled) setUsedOfflineFallback(true);
+              void saveScanForCustomer(cachedOrBundled);
               return;
             }
             handleFirestoreError(err, OperationType.LIST, 'medicines');
@@ -156,6 +191,7 @@ export default function ResultPage() {
           if (!cancelled) {
             setMedicine(medData);
           }
+          await saveScanForCustomer(medData);
 
           if (existsInFirestore && navigator.onLine) {
             void Promise.allSettled([
@@ -169,9 +205,12 @@ export default function ResultPage() {
               }),
             ]);
           }
+        } else {
+          await saveScanForCustomer(cachedOrBundled);
         }
       } catch (err) {
         console.error('Background verification error:', err);
+        await saveScanForCustomer(cachedOrBundled);
       }
     }
 
@@ -179,7 +218,7 @@ export default function ResultPage() {
     return () => {
       cancelled = true;
     };
-  }, [normalizedCode, isOnline]);
+  }, [normalizedCode, isOnline, scannedAt]);
 
   if (loading) {
     return (
@@ -223,6 +262,12 @@ export default function ResultPage() {
             </Link>
           </div>
         </div>
+
+        {scanSaveError && (
+          <p role="alert" className="bg-[#FA6806]/10 border border-[#FA6806] text-[#FA6806] rounded-xl px-4 py-3 text-sm font-medium">
+            {scanSaveError}
+          </p>
+        )}
       </div>
     );
   }

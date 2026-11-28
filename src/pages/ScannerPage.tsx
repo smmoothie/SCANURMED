@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { User } from 'firebase/auth';
+import { AppUser } from '../types';
 import {
   Scan,
   ShieldAlert,
@@ -14,6 +16,7 @@ import {
   CheckCircle2,
   RefreshCcw,
   WifiOff,
+  Lock,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -28,10 +31,40 @@ const QR_ENGINE_CONFIG = {
   },
 };
 
-export default function ScannerPage() {
+export default function ScannerPage({ user }: { user?: AppUser | User | null }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const isOnline = useOnlineStatus();
+
+  /* ── Auth guard ── */
+  if (!user) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
+        <div className="max-w-sm w-full bg-white rounded-2xl border border-[#054A8C] p-8 text-center space-y-5">
+          <div className="w-16 h-16 mx-auto rounded-xl bg-[#FA6806]/10 border border-[#FA6806] flex items-center justify-center">
+            <Lock size={30} className="text-[#FA6806]" />
+          </div>
+          <h2 className="text-xl font-bold text-[#0F2942]">Sign in to scan</h2>
+          <p className="text-sm text-[#3B5875] leading-relaxed">
+            You are not logged in. Please sign in to continue.
+          </p>
+          <Link
+            to="/login"
+            state={{ from: '/scan' }}
+            className="inline-flex items-center gap-2 bg-[#FA6806] text-white font-semibold px-6 py-3 rounded-xl border border-[#054A8C] w-full justify-center"
+          >
+            Sign in to continue
+          </Link>
+          <Link
+            to="/signup"
+            className="block text-sm text-[#054A8C] font-semibold underline"
+          >
+            Create a free account
+          </Link>
+        </div>
+      </div>
+    );
+  }
   const [isUploading, setIsUploading] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraUnavailable, setCameraUnavailable] = useState(false);
@@ -48,6 +81,7 @@ export default function ScannerPage() {
   const handleDecodedCode = async (rawText: string) => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
+    const scannedAt = new Date().toISOString();
 
     const code = normalizeScannedCode(rawText);
     if (isAuthorizedBarcode(code)) {
@@ -55,7 +89,9 @@ export default function ScannerPage() {
     }
 
     await stopScanner();
-    navigate(`/result/${encodeURIComponent(code)}`);
+    navigate(`/result/${encodeURIComponent(code)}`, {
+      state: { scannedAt },
+    });
   };
 
   const startScanner = async (mode: 'environment' | 'user' = facingMode) => {
@@ -189,7 +225,9 @@ export default function ScannerPage() {
     e.preventDefault();
     if (manualId.trim()) {
       const code = normalizeScannedCode(manualId);
-      navigate(`/result/${encodeURIComponent(code)}`);
+      navigate(`/result/${encodeURIComponent(code)}`, {
+        state: { scannedAt: new Date().toISOString() },
+      });
     }
   };
 

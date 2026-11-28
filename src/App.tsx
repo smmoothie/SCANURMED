@@ -16,7 +16,7 @@ import {
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase';
 import { AppUser } from './types';
-import { getLocalAuthUser, subscribeToAuthChanges, clearLocalAuthUser } from './utils/authSession';
+import { clearLocalAuthUser } from './utils/authSession';
 import {
   Scan,
   Search,
@@ -29,18 +29,24 @@ import {
   Building2,
   Moon,
   Sun,
+  User as UserIcon,
+  LayoutDashboard,
+  ChevronDown,
+  UserPlus,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineIndicator } from './components/OfflineIndicator';
-import { isApprovedCompanyEmail } from './data/approvedCompanies';
 
 import Home from './pages/Home';
 import ScannerPage from './pages/ScannerPage';
 import ResultPage from './pages/ResultPage';
 import CompanyPortalPage from './pages/CompanyPortalPage';
 import SearchPage from './pages/SearchPage';
+import CustomerSignUpPage from './pages/CustomerSignUpPage';
+import CustomerLoginPage from './pages/CustomerLoginPage';
+import CustomerDashboardPage from './pages/CustomerDashboardPage';
 
 const LOGO_SRC = '/assets/aistudio/image_79859417.png';
 const THEME_STORAGE_KEY = 'scanurmed_theme';
@@ -56,7 +62,7 @@ function getSavedTheme(): Theme {
 }
 
 function AppContent() {
-  const [user, setUser] = useState<AppUser | User | null>(() => getLocalAuthUser());
+  const [user, setUser] = useState<AppUser | User | null>(null);
   const [theme, setTheme] = useState<Theme>(getSavedTheme);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showIntroRoll, setShowIntroRoll] = useState(true);
@@ -80,22 +86,12 @@ function AppContent() {
 
   useEffect(() => {
     const unsubscribeFirebase = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        const localUser = getLocalAuthUser();
-        setUser(localUser);
-      }
+      setUser(currentUser);
       setIsAuthReady(true);
-    });
-
-    const unsubscribeLocal = subscribeToAuthChanges((changedUser) => {
-      setUser(changedUser || auth.currentUser);
     });
 
     return () => {
       unsubscribeFirebase();
-      unsubscribeLocal();
     };
   }, []);
 
@@ -130,11 +126,13 @@ function AppContent() {
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<Home user={user} />} />
-            <Route path="/scan" element={<ScannerPage />} />
-            <Route path="/result/:barcode" element={<ResultPage />} />
+            <Route path="/scan" element={<ScannerPage user={user} />} />
+            <Route path="/result/:barcode" element={<ResultPage user={user} />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/company/*" element={<CompanyPortalPage user={user} />} />
-            <Route path="/dashboard/*" element={<Navigate to="/company" replace />} />
+            <Route path="/signup" element={<CustomerSignUpPage />} />
+            <Route path="/login" element={<CustomerLoginPage />} />
+            <Route path="/dashboard" element={<CustomerDashboardPage />} />
           </Routes>
         </AnimatePresence>
       </main>
@@ -169,10 +167,7 @@ function Navbar({
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
-
-  const handleLogin = () => {
-    navigate('/company');
-  };
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     if (user?.uid) {
@@ -284,15 +279,41 @@ function Navbar({
 
           {user ? (
             <>
-              <Link
-                to="/company"
-                className="px-3.5 py-2 rounded-lg border border-[#054A8C] bg-white text-[#054A8C] hover:bg-[#7BBCE5]/20 transition-colors flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap shrink-0"
-              >
-                <Building2 size={16} className="text-[#FA6806]" />
-                <span className="hidden sm:inline">
-                  {isApprovedCompanyEmail(user.email) ? t('company_options') : 'Company Access'}
-                </span>
-              </Link>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-expanded={dashboardMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setDashboardMenuOpen((open) => !open)}
+                  className="px-3.5 py-2 rounded-lg border border-[#054A8C] bg-white text-[#054A8C] hover:bg-[#7BBCE5]/20 transition-colors flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap shrink-0"
+                >
+                  <LayoutDashboard size={16} className="text-[#FA6806]" />
+                  <span>Dashboard</span>
+                  <ChevronDown size={14} />
+                </button>
+                {dashboardMenuOpen && (
+                  <div role="menu" className="absolute right-0 top-full mt-2 min-w-52 rounded-xl border border-[#054A8C] bg-white p-2 shadow-lg">
+                    <Link
+                      role="menuitem"
+                      to="/dashboard"
+                      onClick={() => setDashboardMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#054A8C] hover:bg-[#7BBCE5]/20"
+                    >
+                      <UserIcon size={16} className="text-[#FA6806]" />
+                      Customer Dashboard
+                    </Link>
+                    <Link
+                      role="menuitem"
+                      to="/company"
+                      onClick={() => setDashboardMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#054A8C] hover:bg-[#7BBCE5]/20"
+                    >
+                      <Building2 size={16} className="text-[#FA6806]" />
+                      Company Portal
+                    </Link>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -303,14 +324,22 @@ function Navbar({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={handleLogin}
-              className="bg-[#FA6806] text-white border border-[#054A8C] px-2 sm:px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
-            >
-              <LogIn size={16} />
-              <span className="hidden sm:inline">{t('login')}</span>
-            </button>
+            <>
+              <Link
+                to="/login"
+                className="px-3 py-2 rounded-lg border border-[#054A8C] bg-white text-[#054A8C] hover:bg-[#7BBCE5]/20 transition-colors flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap shrink-0"
+              >
+                <LogIn size={16} />
+                <span className="hidden sm:inline">Sign In</span>
+              </Link>
+              <Link
+                to="/signup"
+                className="bg-[#FA6806] text-white border border-[#054A8C] px-2 sm:px-4 py-2 rounded-lg hover:bg-[#E05A00] transition-colors flex items-center gap-2 text-sm font-semibold whitespace-nowrap shrink-0"
+              >
+                <UserPlus size={16} />
+                <span className="hidden sm:inline">Sign Up</span>
+              </Link>
+            </>
           )}
         </div>
       </div>
