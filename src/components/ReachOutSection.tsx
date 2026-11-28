@@ -197,14 +197,14 @@ export function ReachOutSection() {
                 <a
                   key={number}
                   href={`tel:${number.replace(/\s/g, '')}`}
-                  className="group flex items-center justify-between gap-3 rounded-lg border border-[#054A8C]/10 px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-[#16734B]/40 hover:bg-[#E8F3ED]/60 hover:shadow-sm"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[#054A8C]/10 px-4 py-3 hover:border-[#16734B]/40 hover:bg-[#E8F3ED]/60"
                 >
                   <span className="font-mono text-base font-bold tracking-wide text-[#054A8C] sm:text-lg">
                     {number}
                   </span>
                   <PhoneCall
                     size={17}
-                    className="shrink-0 text-[#16734B] transition-transform group-hover:rotate-[-12deg]"
+                    className="shrink-0 text-[#16734B]"
                   />
                 </a>
               ))}
@@ -390,7 +390,7 @@ export function ReachOutSection() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-6 py-3.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#E05A00] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-6 py-3.5 text-sm font-bold text-white hover:bg-[#E05A00] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSubmitting ? (
                 <>

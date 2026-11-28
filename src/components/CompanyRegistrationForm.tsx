@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CompanyRegistrationRequest, AppUser } from '../types';
-import { OperationType, handleFirestoreError } from '../utils/firestoreError';
+import { saveUserProfile } from '../utils/userProfile';
 import {
   Building2,
   CheckCircle2,
@@ -24,18 +24,21 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
   const [formData, setFormData] = useState({
     companyName: '',
     email: user.email || '',
-    licenseNumber: '',
-    contactPerson: user.displayName || '',
     phone: '',
+    address: '',
+    licenseType: '',
+    licenseNumber: '',
+    licenseDetails: '',
+    contactPerson: user.displayName || '',
     notes: '',
   });
 
   useEffect(() => {
     async function loadExistingRequest() {
       setLoading(true);
-      const path = `company_requests/${user.uid}`;
+      const path = `companyApplications/${user.uid}`;
       try {
-        const snap = await getDoc(doc(db, 'company_requests', user.uid));
+        const snap = await getDoc(doc(db, 'companyApplications', user.uid));
         if (snap.exists()) {
           setExistingRequest({
             id: snap.id,
@@ -43,7 +46,8 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
           } as CompanyRegistrationRequest);
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, path);
+        console.error(`Unable to load company request at ${path}:`, err);
+        setErrorMsg('Unable to check your company registration status. Please retry.');
       } finally {
         setLoading(false);
       }
@@ -59,33 +63,47 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
     if (
       !formData.companyName.trim() ||
       !formData.email.trim() ||
+      !formData.phone.trim() ||
+      !formData.address.trim() ||
+      !formData.licenseType.trim() ||
       !formData.licenseNumber.trim() ||
-      !formData.contactPerson.trim() ||
-      !formData.phone.trim()
+      !formData.licenseDetails.trim() ||
+      !formData.contactPerson.trim()
     ) {
       setErrorMsg('Please complete all required company registration fields.');
       return;
     }
 
     setSubmitting(true);
-    const path = `company_requests/${user.uid}`;
-    const payload: Omit<CompanyRegistrationRequest, 'id'> = {
+    const path = `companyApplications/${user.uid}`;
+    const application = {
       uid: user.uid,
       companyName: formData.companyName.trim().slice(0, 200),
       email: formData.email.trim().slice(0, 254),
-      licenseNumber: formData.licenseNumber.trim().slice(0, 100),
-      contactPerson: formData.contactPerson.trim().slice(0, 150),
       phone: formData.phone.trim().slice(0, 40),
+      address: formData.address.trim().slice(0, 500),
+      licenseType: formData.licenseType.trim().slice(0, 100),
+      licenseNumber: formData.licenseNumber.trim().slice(0, 100),
+      licenseDetails: formData.licenseDetails.trim().slice(0, 1000),
+      contactPerson: formData.contactPerson.trim().slice(0, 150),
       notes: formData.notes.trim().slice(0, 1000),
-      status: 'pending',
-      createdAt: new Date().toISOString(),
+      status: 'PENDING' as const,
     };
 
     try {
-      await setDoc(doc(db, 'company_requests', user.uid), payload);
-      setExistingRequest({ id: user.uid, ...payload });
+      await saveUserProfile(user);
+      await setDoc(doc(db, 'companyApplications', user.uid), {
+        ...application,
+        submittedAt: serverTimestamp(),
+      });
+      setExistingRequest({
+        id: user.uid,
+        ...application,
+        submittedAt: new Date().toISOString(),
+      });
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, path);
+      console.error(`Unable to submit company request at ${path}:`, err);
+      setErrorMsg('Your company registration could not be submitted. Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -102,9 +120,9 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
 
   if (existingRequest) {
     const statusLabel =
-      existingRequest.status === 'approved'
+      existingRequest.status === 'APPROVED'
         ? 'Approved'
-        : existingRequest.status === 'rejected'
+        : existingRequest.status === 'REJECTED'
         ? 'Rejected'
         : 'Pending Review';
 
@@ -112,9 +130,9 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
       <div className="max-w-2xl mx-auto bg-white border border-[#054A8C] rounded-2xl p-8 space-y-6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#7BBCE5]/25 border border-[#054A8C] flex items-center justify-center text-[#054A8C] shrink-0">
-            {existingRequest.status === 'approved' ? (
+            {existingRequest.status === 'APPROVED' ? (
               <CheckCircle2 size={24} className="text-[#054A8C]" />
-            ) : existingRequest.status === 'rejected' ? (
+            ) : existingRequest.status === 'REJECTED' ? (
               <ShieldAlert size={24} className="text-[#FA6806]" />
             ) : (
               <Clock size={24} className="text-[#FA6806]" />
@@ -125,7 +143,12 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
               Company Registration {statusLabel}
             </h1>
             <p className="text-sm text-[#3B5875]">
-              Signed in as <span className="font-mono">{user.email}</span>. Direct company login is restricted to pre-approved accounts; your registration application is on file.
+              Signed in as <span className="font-mono">{user.email}</span>.{' '}
+              {existingRequest.status === 'APPROVED'
+                ? 'Your company access is approved. Sign out and sign in again to open the company dashboard.'
+                : existingRequest.status === 'REJECTED'
+                ? 'This request was not approved. Contact the Scanurmed team if you believe this decision needs review.'
+                : 'Your application is being reviewed. You can return here to check its status.'}
             </p>
           </div>
         </div>
@@ -142,6 +165,14 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
             </div>
           </div>
           <div>
+            <div className="text-xs font-semibold text-[#3B5875]">License Type</div>
+            <div className="font-semibold text-[#0F2942]">{existingRequest.licenseType}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-[#3B5875]">Address</div>
+            <div className="font-semibold text-[#0F2942]">{existingRequest.address}</div>
+          </div>
+          <div>
             <div className="text-xs font-semibold text-[#3B5875]">Contact Person</div>
             <div className="font-semibold text-[#0F2942]">{existingRequest.contactPerson}</div>
           </div>
@@ -149,6 +180,20 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
             <div className="text-xs font-semibold text-[#3B5875]">Application Status</div>
             <div className="font-bold text-[#FA6806]">{statusLabel}</div>
           </div>
+          <div className="sm:col-span-2">
+            <div className="text-xs font-semibold text-[#3B5875]">Submitted</div>
+            <div className="font-semibold text-[#0F2942]">
+              {formatDate(existingRequest.submittedAt)}
+            </div>
+          </div>
+          {existingRequest.reviewedAt && (
+            <div className="sm:col-span-2">
+              <div className="text-xs font-semibold text-[#3B5875]">Decision Recorded</div>
+              <div className="font-semibold text-[#0F2942]">
+                {formatDate(existingRequest.reviewedAt)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -161,7 +206,7 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-[#0F2942]">Company Registration Required</h1>
           <p className="text-sm text-[#0F2942] leading-relaxed">
-            Your account (<span className="font-mono">{user.email}</span>) is not in the pre-approved direct company login list. Complete this registration form to request pharmaceutical company access.
+            Your account (<span className="font-mono">{user.email}</span>) does not yet have company access. Submit a pharmaceutical company application for review.
           </p>
         </div>
       </div>
@@ -213,6 +258,21 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-[#054A8C]">
+              License Type <span className="text-[#FA6806]">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              maxLength={100}
+              placeholder="Manufacturing, wholesale, etc."
+              value={formData.licenseType}
+              onChange={(e) => setFormData({ ...formData, licenseType: e.target.value })}
+              className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#054A8C]">
               Pharma / Drug License Number <span className="text-[#FA6806]">*</span>
             </label>
             <input
@@ -223,6 +283,33 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
               value={formData.licenseNumber}
               onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
               className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl font-mono text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
+            />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-semibold text-[#054A8C]">
+              Registered Business Address <span className="text-[#FA6806]">*</span>
+            </label>
+            <textarea
+              required
+              maxLength={500}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl text-sm h-20 resize-y focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
+            />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-xs font-semibold text-[#054A8C]">
+              License Details <span className="text-[#FA6806]">*</span>
+            </label>
+            <textarea
+              required
+              maxLength={1000}
+              placeholder="Issuing authority, jurisdiction, validity period, or other license details"
+              value={formData.licenseDetails}
+              onChange={(e) => setFormData({ ...formData, licenseDetails: e.target.value })}
+              className="w-full px-4 py-3 bg-[#F7FAFC] border border-[#054A8C] rounded-xl text-sm h-24 resize-y focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FA6806]"
             />
           </div>
 
@@ -283,3 +370,8 @@ export const CompanyRegistrationForm: React.FC<{ user: AppUser | User }> = ({ us
     </div>
   );
 };
+
+function formatDate(value: CompanyRegistrationRequest['submittedAt']): string {
+  const date = typeof value === 'string' ? new Date(value) : value.toDate();
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
+}

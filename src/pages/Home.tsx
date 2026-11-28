@@ -19,9 +19,9 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { seedDatabase } from '../utils/seedData';
+import { hasAdminClaim } from '../utils/adminAccess';
 import { useLanguage } from '../context/LanguageContext';
 import { AUTHORIZED_MEDICINES } from '../data/authorizedMedicines';
-import { isApprovedCompanyEmail } from '../data/approvedCompanies';
 import { PWAInstallButton } from '../components/PWAInstallButton';
 import { ReachOutSection } from '../components/ReachOutSection';
 
@@ -68,6 +68,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
   const [seeding, setSeeding] = useState(false);
   const [seeded, setSeeded] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const location = useLocation();
@@ -83,6 +84,29 @@ export default function Home({ user }: { user: AppUser | User | null }) {
 
     return () => window.cancelAnimationFrame(frame);
   }, [location.hash, shouldReduceMotion]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setIsAdmin(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void hasAdminClaim(user)
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch((error: unknown) => {
+        console.error('Unable to verify administrator claim:', error);
+        if (!cancelled) setSeedError('Administrator access could not be verified.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -177,7 +201,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
                   <span>Open Label Sheet PDF</span>
                 </a>
 
-                {user && isApprovedCompanyEmail(user.email) && (
+                {user && isAdmin && (
                   <button
                     type="button"
                     onClick={handleSeed}
@@ -242,7 +266,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
             </div>
             <Link
               to="/scan"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-5 py-3 text-sm font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#E05A00] hover:shadow-lg"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#054A8C] bg-[#FA6806] px-5 py-3 text-sm font-bold text-white hover:bg-[#E05A00]"
             >
               <Scan size={17} />
               Scan a medicine
@@ -304,7 +328,7 @@ export default function Home({ user }: { user: AppUser | User | null }) {
           </div>
           <Link
             to="/search"
-            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white px-5 py-3 text-sm font-bold text-[#054A8C] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#EAF3FA] hover:shadow-lg sm:self-auto"
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white px-5 py-3 text-sm font-bold text-[#054A8C] hover:bg-[#EAF3FA] sm:self-auto"
           >
             Explore SCANURMED
             <ArrowUpRight size={17} />

@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export interface AppUser {
   uid: string;
   email: string | null;
@@ -10,8 +12,45 @@ export interface Company {
   uid: string;
   name: string;
   email: string;
+  phone: string;
+  address: string;
+  licenseNumber: string;
+  licenseType: string;
+  licenseDetails: string;
   representativeName?: string;
-  createdAt: string;
+  applicationId: string;
+  status: 'APPROVED' | 'REJECTED';
+  createdAt: string | Timestamp;
+  approvedAt: string | Timestamp;
+  approvedByUid: string;
+  updatedAt?: string | Timestamp;
+}
+
+export interface CompanyMedicineRecord {
+  id: string;
+  companyId: string;
+  companyName: string;
+  manufacturerName: string;
+  licenseNumber: string;
+  licenseType: string;
+  licenseDetails: string;
+  name: string;
+  activeComponent: string;
+  batchNumber: string;
+  manufacturingDate: string;
+  expiryDate: string;
+  imagePath: string;
+  registeredAt: string | Timestamp;
+}
+
+export interface MedicineRegistrationHistory {
+  id: string;
+  companyId: string;
+  medicineId: string;
+  medicineName: string;
+  eventType: 'REGISTERED';
+  performedByUid: string;
+  createdAt: string | Timestamp;
 }
 
 export interface CompanyRegistrationRequest {
@@ -19,13 +58,17 @@ export interface CompanyRegistrationRequest {
   uid: string;
   companyName: string;
   email: string;
-  licenseNumber: string;
-  contactPerson: string;
   phone: string;
+  address: string;
+  licenseNumber: string;
+  licenseType: string;
+  licenseDetails: string;
+  contactPerson: string;
   notes: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
-  updatedAt?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  submittedAt: string | Timestamp;
+  reviewedAt?: string | Timestamp;
+  reviewedByUid?: string;
 }
 
 export interface Medicine {

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { db } from '../firebase';
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { auth, db } from '../firebase';
 import {
   collection,
   query,
@@ -12,10 +12,11 @@ import {
   doc,
   increment,
 } from 'firebase/firestore';
-import { Medicine } from '../types';
+import type { Medicine } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { OperationType, handleFirestoreError } from '../utils/firestoreError';
+import { saveCustomerScan } from '../utils/customerAuth';
 import {
   getAuthorizedMedicineByCode,
   normalizeScannedCode,
@@ -90,13 +91,18 @@ function formatMonthYear(dateValue?: string): string {
 export default function ResultPage() {
   const { barcode } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const isOnline = useOnlineStatus();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [usedOfflineFallback, setUsedOfflineFallback] = useState(false);
+  const [scanSaveError, setScanSaveError] = useState<string | null>(null);
   const [showClinicalDetails, setShowClinicalDetails] = useState(false);
+  const savedScanEventRef = useRef<string | null>(null);
+  const scannedAt =
+    (location.state as { scannedAt?: string } | null)?.scannedAt || null;
 
   const normalizedCode = barcode ? normalizeScannedCode(decodeURIComponent(barcode)) : '';
 
@@ -131,7 +137,31 @@ export default function ResultPage() {
       setUsedOfflineFallback(!navigator.onLine);
       setLoading(false);
 
+      const customer = auth.currentUser;
+      const saveScanForCustomer = async (scanMedicine: Medicine) => {
+        if (
+          !scannedAt ||
+          !customer ||
+          savedScanEventRef.current === scannedAt
+        ) {
+          return;
+        }
+
+        savedScanEventRef.current = scannedAt;
+        try {
+          await saveCustomerScan(customer.uid, scanMedicine, scannedAt);
+          if (!cancelled) setScanSaveError(null);
+        } catch (error) {
+          savedScanEventRef.current = null;
+          console.error('Unable to save customer medicine scan:', error);
+          if (!cancelled) {
+            setScanSaveError('This scan could not be saved to your account. Check your connection and try again.');
+          }
+        }
+      };
+
       if (!navigator.onLine) {
+        void saveScanForCustomer(cachedOrBundled);
         return;
       }
 
@@ -151,6 +181,7 @@ export default function ResultPage() {
         } catch (err) {
           if (isOfflineFirestoreError(err)) {
             if (!cancelled) setUsedOfflineFallback(true);
+            void saveScanForCustomer(cachedOrBundled);
             return;
           }
           handleFirestoreError(err, OperationType.GET, docPath);
@@ -172,6 +203,7 @@ export default function ResultPage() {
           } catch (err) {
             if (isOfflineFirestoreError(err)) {
               if (!cancelled) setUsedOfflineFallback(true);
+              void saveScanForCustomer(cachedOrBundled);
               return;
             }
             handleFirestoreError(err, OperationType.LIST, 'medicines');
@@ -184,6 +216,7 @@ export default function ResultPage() {
           if (!cancelled) {
             setMedicine(medData);
           }
+          await saveScanForCustomer(medData);
 
           if (existsInFirestore && navigator.onLine) {
             void Promise.allSettled([
@@ -197,9 +230,12 @@ export default function ResultPage() {
               }),
             ]);
           }
+        } else {
+          await saveScanForCustomer(cachedOrBundled);
         }
       } catch (err) {
         console.error('Background verification error:', err);
+        await saveScanForCustomer(cachedOrBundled);
       }
     }
 
@@ -207,7 +243,7 @@ export default function ResultPage() {
     return () => {
       cancelled = true;
     };
-  }, [normalizedCode, isOnline]);
+  }, [normalizedCode, isOnline, scannedAt]);
 
   if (loading) {
     return (
@@ -251,6 +287,12 @@ export default function ResultPage() {
             </Link>
           </div>
         </div>
+
+        {scanSaveError && (
+          <p role="alert" className="bg-[#FA6806]/10 border border-[#FA6806] text-[#FA6806] rounded-xl px-4 py-3 text-sm font-medium">
+            {scanSaveError}
+          </p>
+        )}
       </div>
     );
   }
@@ -297,7 +339,12 @@ export default function ResultPage() {
         </div>
       )}
 
-      {/* Verified Product Certificate Card */}
+      {scanSaveError && (
+        <p role="alert" className="bg-[#FA6806]/10 border border-[#FA6806] text-[#FA6806] rounded-xl px-4 py-3 text-sm font-medium">
+          {scanSaveError}
+        </p>
+      )}
+
       <section className="bg-white rounded-2xl border border-[#054A8C] shadow-[0_8px_28px_rgb(15,41,66,0.08)] px-6 py-8 sm:px-8 sm:py-10">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 mx-auto rounded-full bg-[#15803D] text-white flex items-center justify-center shadow-sm">
@@ -312,56 +359,16 @@ export default function ResultPage() {
 
         <div className="space-y-5">
           <h3 className="text-base font-bold text-[#0F2942]">{t('code_details')}</h3>
-
           <dl className="space-y-4">
-            <CodeDetailRow
-              icon={<Package size={18} strokeWidth={1.75} />}
-              label={t('gtin_label')}
-              value={medicine.barcode}
-              mono
-            />
-            <CodeDetailRow
-              icon={<Layers size={18} strokeWidth={1.75} />}
-              label={t('proper_drug_name')}
-              value={properDrugName}
-            />
-            <CodeDetailRow
-              icon={<Landmark size={18} strokeWidth={1.75} />}
-              label={t('brand_name')}
-              value={medicine.name}
-            />
-            <CodeDetailRow
-              icon={<Contact size={18} strokeWidth={1.75} />}
-              label={t('manufacturer_label')}
-              value={manufacturerFull}
-            />
-            <CodeDetailRow
-              icon={<Barcode size={18} strokeWidth={1.75} />}
-              label={t('batch_number')}
-              value={batchNumber}
-              mono
-            />
-            <CodeDetailRow
-              icon={<Calendar size={18} strokeWidth={1.75} />}
-              label={t('mfg_date_label')}
-              value={formatMonthYear(medicine.mfgDate)}
-            />
-            <CodeDetailRow
-              icon={<Calendar size={18} strokeWidth={1.75} />}
-              label={t('expiry_date_label')}
-              value={formatMonthYear(medicine.expiryDate)}
-            />
-            <CodeDetailRow
-              icon={<Award size={18} strokeWidth={1.75} />}
-              label={t('license_number')}
-              value={licenseNumber}
-              mono
-            />
-            <CodeDetailRow
-              icon={<FileText size={18} strokeWidth={1.75} />}
-              label={t('excipients_label')}
-              value={excipientsList}
-            />
+            <CodeDetailRow icon={<Package size={18} />} label={t('gtin_label')} value={medicine.barcode} mono />
+            <CodeDetailRow icon={<Layers size={18} />} label={t('proper_drug_name')} value={properDrugName} />
+            <CodeDetailRow icon={<Landmark size={18} />} label={t('brand_name')} value={medicine.name} />
+            <CodeDetailRow icon={<Contact size={18} />} label={t('manufacturer_label')} value={manufacturerFull} />
+            <CodeDetailRow icon={<Barcode size={18} />} label={t('batch_number')} value={batchNumber} mono />
+            <CodeDetailRow icon={<Calendar size={18} />} label={t('mfg_date_label')} value={formatMonthYear(medicine.mfgDate)} />
+            <CodeDetailRow icon={<Calendar size={18} />} label={t('expiry_date_label')} value={formatMonthYear(medicine.expiryDate)} />
+            <CodeDetailRow icon={<Award size={18} />} label={t('license_number')} value={licenseNumber} mono />
+            <CodeDetailRow icon={<FileText size={18} />} label={t('excipients_label')} value={excipientsList} />
           </dl>
         </div>
 
@@ -370,16 +377,10 @@ export default function ResultPage() {
         </p>
 
         <div className="mt-6 flex items-center justify-between gap-4">
-          <Link
-            to="/company"
-            className="text-sm font-semibold text-[#054A8C] hover:text-[#FA6806] underline underline-offset-4 transition-colors"
-          >
+          <Link to="/company" className="text-sm font-semibold text-[#054A8C] hover:text-[#FA6806] underline underline-offset-4 transition-colors">
             {t('contact_us')}
           </Link>
-          <Link
-            to="/search"
-            className="text-sm font-semibold text-[#3B5875] hover:text-[#054A8C] transition-colors"
-          >
+          <Link to="/search" className="text-sm font-semibold text-[#3B5875] hover:text-[#054A8C] transition-colors">
             {t('search_btn')}
           </Link>
         </div>
@@ -388,18 +389,15 @@ export default function ResultPage() {
           <p>{medicine.companyName} · Authorized Label Registry</p>
           <p>
             {t('powered_by')}{' '}
-            <span className="font-semibold text-[#FA6806] underline underline-offset-2">
-              Scanurmed
-            </span>
+            <span className="font-semibold text-[#FA6806] underline underline-offset-2">Scanurmed</span>
           </p>
         </div>
       </section>
 
-      {/* Expandable Clinical & Safety Information (preserves original Scanurmed clinical guide) */}
       <div className="space-y-4">
         <button
           type="button"
-          onClick={() => setShowClinicalDetails((prev) => !prev)}
+          onClick={() => setShowClinicalDetails((previous) => !previous)}
           aria-expanded={showClinicalDetails}
           className="w-full bg-white hover:bg-[#7BBCE5]/15 border border-[#054A8C] rounded-xl px-5 py-3.5 flex items-center justify-between gap-3 text-sm font-semibold text-[#054A8C] transition-colors"
         >
@@ -443,13 +441,13 @@ export default function ResultPage() {
               <div className="bg-white rounded-2xl p-6 md:p-7 border border-[#054A8C] space-y-4">
                 <h3 className="font-bold text-lg text-[#0F2942]">{t('alternatives')}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {medicine.alternatives.map((alt, i) => (
+                  {medicine.alternatives.map((alternative, index) => (
                     <div
-                      key={i}
+                      key={index}
                       className="bg-[#F7FAFC] text-[#054A8C] px-4 py-3 rounded-xl text-sm font-semibold border border-[#054A8C] flex items-center gap-2.5"
                     >
                       <Pill size={15} className="text-[#FA6806] shrink-0" />
-                      <span className="truncate">{alt}</span>
+                      <span className="truncate">{alternative}</span>
                     </div>
                   ))}
                 </div>

@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /company-medicine-photos/{companyId}/{medicineId}/{fileName} {
+      function hasApprovedCompanyAccess() {
+        return request.auth != null
+          && request.auth.uid == companyId
+          && firestore.get(/databases/(default)/documents/companies/$(companyId)).data.uid == companyId
+          && firestore.get(/databases/(default)/documents/companies/$(companyId)).data.status == 'APPROVED'
+          && firestore.get(/databases/(default)/documents/companyApplications/$(companyId)).data.uid == companyId
+          && firestore.get(/databases/(default)/documents/companyApplications/$(companyId)).data.status == 'APPROVED';
+      }
+
+      allow read: if hasApprovedCompanyAccess();
+      allow create: if hasApprovedCompanyAccess()
+        && fileName == 'photo'
+        && resource == null
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+      allow update: if false;
+      allow delete: if hasApprovedCompanyAccess()
+        && !firestore.exists(/databases/(default)/documents/company_medicines/$(medicineId));
+    }
+  }
+}
