@@ -106,6 +106,13 @@ export function ReachOutSection() {
       return;
     }
 
+    if (!db) {
+      setSubmissionError(
+        'The message form is unavailable until Firebase is configured. Please call us using one of the numbers provided.'
+      );
+      return;
+    }
+
     submittingRef.current = true;
     setIsSubmitting(true);
 

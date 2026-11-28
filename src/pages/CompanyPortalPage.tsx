@@ -6,7 +6,7 @@ import {
   signOut,
   User,
 } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { auth, db, getFirebaseAuth, isFirebaseConfigured } from '../firebase';
 import {
   collection,
   query,
@@ -76,6 +76,7 @@ import {
 } from '../data/authorizedMedicines';
 import { CompanyRegistrationForm } from '../components/CompanyRegistrationForm';
 import { CompanyMedicineRegistry } from '../components/CompanyMedicineRegistry';
+import { FirebaseUnavailableNotice } from '../components/FirebaseUnavailableNotice';
 
 type PortalUser = AppUser | User;
 const COMPANY_PORTAL_NAME = 'Company Portal';
@@ -279,7 +280,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
     setSigningIn(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(getFirebaseAuth(), provider);
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
 
@@ -312,7 +313,7 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
     setLoginError(null);
     setSigningIn(true);
     try {
-      await signInWithEmailAndPassword(auth, loginEmail.trim(), emailPassInput);
+      await signInWithEmailAndPassword(getFirebaseAuth(), loginEmail.trim(), emailPassInput);
       setEmailPassInput('');
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
@@ -348,11 +349,19 @@ export default function CompanyPortalPage({ user }: { user: PortalUser | null })
   const handleSignOut = async () => {
     clearLocalAuthUser();
     try {
-      await signOut(auth);
+      if (auth) await signOut(auth);
     } catch (e) {
       console.warn('Sign out notice:', e);
     }
   };
+
+  if (!user && !isFirebaseConfigured) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <FirebaseUnavailableNotice feature="The pharmaceutical company portal" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (

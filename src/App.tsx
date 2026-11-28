@@ -85,6 +85,12 @@ function AppContent() {
   }, [shouldReduceMotion]);
 
   useEffect(() => {
+    if (!auth) {
+      setUser(null);
+      setIsAuthReady(true);
+      return;
+    }
+
     const unsubscribeFirebase = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthReady(true);
@@ -175,7 +181,7 @@ function Navbar({
     }
     clearLocalAuthUser();
     try {
-      await signOut(auth);
+      if (auth) await signOut(auth);
     } catch (e) {
       console.warn('SignOut warning:', e);
     }

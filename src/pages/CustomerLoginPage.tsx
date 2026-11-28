@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { getFirebaseAuth, isFirebaseConfigured } from '../firebase';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
+import { FirebaseUnavailableNotice } from '../components/FirebaseUnavailableNotice';
 
 export default function CustomerLoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function CustomerLoginPage() {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const raw = err instanceof Error ? err.message : String(err);
@@ -66,6 +67,10 @@ export default function CustomerLoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#054A8C] shadow-sm p-8 space-y-6">
+          {!isFirebaseConfigured && (
+            <FirebaseUnavailableNotice feature="Customer sign-in" />
+          )}
+
           {error && (
             <div className="bg-[#FA6806]/10 border border-[#FA6806] text-[#FA6806] rounded-xl px-4 py-3 text-sm font-medium">
               {error}
@@ -115,7 +120,7 @@ export default function CustomerLoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isFirebaseConfigured}
               className="w-full flex items-center justify-center gap-2 bg-[#FA6806] text-white font-semibold py-3 px-6 rounded-xl border border-[#054A8C] disabled:opacity-60"
             >
               {loading ? (
