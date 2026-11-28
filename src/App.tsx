@@ -127,7 +127,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/scan" element={<ScannerPage user={user} />} />
-            <Route path="/result/:barcode" element={<ResultPage user={user} />} />
+            <Route path="/result/:barcode" element={<ResultPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/company/*" element={<CompanyPortalPage user={user} />} />
             <Route path="/signup" element={<CustomerSignUpPage />} />
